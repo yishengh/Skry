@@ -13,4 +13,8 @@ local.properties
 *.aab
 .kotlin/
 app/src/main/ic_launcher-playstore.png
+keystore.properties
+*.jks
+*.keystore
+skry-release.keystore
 
