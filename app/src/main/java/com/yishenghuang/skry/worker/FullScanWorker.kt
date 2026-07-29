@@ -1,6 +1,7 @@
 package com.yishenghuang.skry.worker
 
 import android.content.Context
+import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -105,7 +106,8 @@ class FullScanWorker(
         ) {
             val request = OneTimeWorkRequestBuilder<FullScanWorker>()
                 .apply {
-                    if (userInitiated) {
+                    // Expedited without getForegroundInfo() is only safe on API 31+.
+                    if (userInitiated && Build.VERSION.SDK_INT >= 31) {
                         setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                     }
                 }

@@ -33,7 +33,7 @@
     <string name="home_scan_paused">扫描已暂停</string>
     <string name="home_scan_progress_detail">已完成 %1$d · 剩余 %2$d</string>
     <string name="home_allow_access_title">允许访问照片</string>
-    <string name="home_allow_access_body">Skry 仅在本地读取相册。此版本不含网络权限。</string>
+    <string name="home_allow_access_body">Skry 仅在本机读取相册，不含网络权限。</string>
     <string name="home_grant_access">授予权限</string>
     <string name="home_privacy_risks">隐私风险</string>
     <string name="home_needs_review">待确认</string>

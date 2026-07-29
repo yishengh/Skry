@@ -37,7 +37,7 @@
     <string name="home_scan_paused">Scan paused</string>
     <string name="home_scan_progress_detail">%1$d done · %2$d left</string>
     <string name="home_allow_access_title">Allow photo access</string>
-    <string name="home_allow_access_body">Skry reads your gallery locally. This build has no network permission.</string>
+    <string name="home_allow_access_body">Skry reads your gallery only on this device. No internet permission.</string>
     <string name="home_grant_access">Grant access</string>
     <string name="home_privacy_risks">Privacy risks</string>
     <string name="home_needs_review">Needs review</string>

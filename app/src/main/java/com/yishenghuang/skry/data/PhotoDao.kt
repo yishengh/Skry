@@ -101,6 +101,22 @@ interface PhotoDao {
     @Query("SELECT * FROM photos WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): PhotoEntity?
 
+    @Query("DELETE FROM photos WHERE id IN (:ids) AND vaultStatus = 'NONE'")
+    suspend fun deleteNonVaultedByIds(ids: List<String>)
+
+    @Query(
+        """
+        UPDATE photos SET
+            suggestedDelete = 0,
+            isStarredPick = 0,
+            isBlurry = 0,
+            isExpiredScreenshot = 0,
+            isLongScreenshot = 0
+        WHERE id IN (:ids) AND vaultStatus != 'NONE'
+        """
+    )
+    suspend fun clearCleanerFlagsForVaulted(ids: List<String>)
+
     @Query("UPDATE photos SET userReview = :review WHERE id = :id")
     suspend fun updateUserReview(id: String, review: UserReviewStatus)
 

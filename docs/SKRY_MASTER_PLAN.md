@@ -17,7 +17,7 @@
 | Document detection | **OCR + rules** (no self-training); vision classification reserved for Phase 5 |
 | Network | **Never add `INTERNET`**; ML Kit Bundled models only |
 | Vault | App-private `EncryptedFile` + Android Keystore + Biometric |
-| Permissions | `READ_MEDIA_IMAGES` only (`minSdk 33`) |
+| Permissions | Gallery access: `READ_MEDIA_IMAGES` (API 33+); `READ_EXTERNAL_STORAGE` (API 26–32); `WRITE_EXTERNAL_STORAGE` maxSdk 28 for legacy deletes. `minSdk 26` |
 | License intent | MIT / open source friendly |
 
 ### Corrections vs earlier draft plan
@@ -136,7 +136,7 @@ com.yishenghuang.skry/
 - `vaultStatus` (NONE / MOVED / REDACTED)
 
 **MediaRepository:** ContentResolver scan, incremental by MediaStore id / dateAdded  
-**Permission:** `READ_MEDIA_IMAGES` + runtime flow
+**Permission:** gallery access runtime flow (`READ_MEDIA_IMAGES` on API 33+; storage permissions on older APIs)
 
 ### Phase 2 — Privacy Audit
 
@@ -198,7 +198,7 @@ com.yishenghuang.skry/
 - Phase 3: none heavy  
 - Phase 4: security-crypto, Biometric  
 
-**Manifest:** `READ_MEDIA_IMAGES` only. Never `INTERNET`.
+**Manifest:** gallery permissions by API level (see Permissions table). Never `INTERNET`.
 
 ---
 

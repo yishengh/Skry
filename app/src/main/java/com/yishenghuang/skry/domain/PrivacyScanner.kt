@@ -2,16 +2,15 @@ package com.yishenghuang.skry.domain
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.yishenghuang.skry.util.MediaAccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import kotlin.math.max
 
 data class PrivacyScanOutcome(
     val findings: List<Finding>,
@@ -117,20 +116,12 @@ class PrivacyScanner(
     }
 
     private fun decodeSampledBitmap(uri: Uri, maxSide: Int): Bitmap? {
-        return runCatching {
-            val source = ImageDecoder.createSource(context.contentResolver, uri)
-            ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-                val w = info.size.width
-                val h = info.size.height
-                val longest = max(w, h).coerceAtLeast(1)
-                val scale = if (longest > maxSide) longest.toFloat() / maxSide else 1f
-                decoder.setTargetSize(
-                    (w / scale).toInt().coerceAtLeast(1),
-                    (h / scale).toInt().coerceAtLeast(1)
-                )
-                decoder.isMutableRequired = false
-                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            }
-        }.getOrNull()
+        return MediaAccess.decodeSampledBitmap(
+            context = context,
+            uri = uri,
+            maxSide = maxSide,
+            mutable = false,
+            scaleModeFit = false
+        )
     }
 }

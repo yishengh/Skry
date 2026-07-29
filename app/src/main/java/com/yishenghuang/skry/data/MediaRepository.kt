@@ -1,14 +1,15 @@
 package com.yishenghuang.skry.data
 
-import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import com.yishenghuang.skry.domain.FindingType
 import com.yishenghuang.skry.domain.FindingsJson
 import com.yishenghuang.skry.domain.PrivacyScanner
 import com.yishenghuang.skry.domain.QualityAnalyzer
 import com.yishenghuang.skry.domain.VaultService
+import com.yishenghuang.skry.util.MediaAccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -140,6 +141,12 @@ class MediaRepository(
             vaultedAt = null
         )
         true
+    }
+
+    suspend fun removeDeletedFromCleaner(photoIds: List<String>) = withContext(Dispatchers.IO) {
+        if (photoIds.isEmpty()) return@withContext
+        photoDao.deleteNonVaultedByIds(photoIds)
+        photoDao.clearCleanerFlagsForVaulted(photoIds)
     }
 
     suspend fun syncGallery(): GalleryScanResult = withContext(Dispatchers.IO) {
@@ -317,17 +324,23 @@ class MediaRepository(
     }
 
     private fun queryMediaStore(): List<PhotoEntity> {
-        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.WIDTH,
-            MediaStore.Images.Media.HEIGHT,
-            MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.RELATIVE_PATH
-        )
+        val collection = MediaAccess.imagesCollectionUri()
+        val useRelativePath = Build.VERSION.SDK_INT >= 29
+        val projection = buildList {
+            add(MediaStore.Images.Media._ID)
+            add(MediaStore.Images.Media.DISPLAY_NAME)
+            add(MediaStore.Images.Media.DATE_ADDED)
+            add(MediaStore.Images.Media.SIZE)
+            add(MediaStore.Images.Media.WIDTH)
+            add(MediaStore.Images.Media.HEIGHT)
+            add(MediaStore.Images.Media.MIME_TYPE)
+            if (useRelativePath) {
+                add(MediaStore.Images.Media.RELATIVE_PATH)
+            } else {
+                @Suppress("DEPRECATION")
+                add(MediaStore.Images.Media.DATA)
+            }
+        }.toTypedArray()
         val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
         val items = mutableListOf<PhotoEntity>()
 
@@ -345,15 +358,20 @@ class MediaRepository(
             val widthCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
             val heightCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
             val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
-            val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)
+            val pathCol = if (useRelativePath) {
+                cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)
+            } else {
+                @Suppress("DEPRECATION")
+                cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+            }
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
-                val uri: Uri = ContentUris.withAppendedId(collection, id)
-                val displayName = cursor.getString(nameCol)
-                val relativePath = cursor.getString(pathCol).orEmpty()
+                val uri: Uri = MediaAccess.contentUriForId(id)
+                val displayName = cursor.getString(nameCol).orEmpty()
+                val pathHint = cursor.getString(pathCol).orEmpty()
                 val isScreenshot = displayName.contains("Screenshot", ignoreCase = true) ||
-                    relativePath.contains("Screenshot", ignoreCase = true)
+                    pathHint.contains("Screenshot", ignoreCase = true)
 
                 items += PhotoEntity(
                     id = id.toString(),

@@ -38,7 +38,7 @@ Skry audits your photo library locally — OCR + rules for privacy leaks, smart 
 
 Kotlin · Jetpack Compose · Material 3 · Room · WorkManager · ML Kit Text Recognition (bundled) · AndroidX Security Crypto · Biometric
 
-`minSdk 33` · UI: English + 简体中文 (follows system language) · OCR: Latin / English first
+`minSdk 26` (Android 8+) · UI: English + 简体中文 (follows system language) · OCR: Latin / English first
 
 ## Roadmap
 
@@ -49,6 +49,7 @@ Kotlin · Jetpack Compose · Material 3 · Room · WorkManager · ML Kit Text Re
 | Done | Phase 3 | Smart Cleaner (duplicates, blur, expired / long shots) |
 | Done | Phase 4 | Safety Vault (mosaic + EncryptedFile + biometric) |
 | Done | i18n | English + Simplified Chinese UI resources |
+| Done | Android 8+ compatibility | API-branched gallery permissions, MediaStore, decode, delete |
 | Planned | In-app language picker | Override system locale without changing device language |
 | Planned | More UI locales | e.g. 日本語, Español, Deutsch — string packs only |
 | Planned | Phase 5 vision (optional) | Offline TFLite only if a redistributable model exists — handheld ID, hard docs, memes; no self-training |
@@ -66,7 +67,9 @@ See [`docs/SKRY_MASTER_PLAN.md`](docs/SKRY_MASTER_PLAN.md) for detailed phase no
 ./gradlew :app:assembleDebug
 ```
 
-Open in Android Studio (JBR / JDK 17+). Grant `READ_MEDIA_IMAGES`, then tap the health ring to scan.
+Open in Android Studio (JBR / JDK 17+). Grant gallery access (`READ_MEDIA_IMAGES` on Android 13+; storage permissions on older Android), then tap the health ring to scan.
+
+Release signing uses a local `keystore.properties` (see `keystore.properties.example`). Never commit keystores or passwords.
 
 ## Architecture (short)
 

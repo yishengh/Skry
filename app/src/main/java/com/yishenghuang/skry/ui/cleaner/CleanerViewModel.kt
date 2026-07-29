@@ -167,6 +167,17 @@ class CleanerViewModel(
             .map { Uri.parse(it.uri) }
     }
 
+    fun selectedPhotoIds(): List<String> = selectedIds.value.toList()
+
+    fun onDeleteCompleted(photoIds: List<String>) {
+        selectedIds.value = emptySet()
+        detailId.value = null
+        relatedItems.value = emptyList()
+        viewModelScope.launch {
+            repository.removeDeletedFromCleaner(photoIds)
+        }
+    }
+
     fun openDetail(id: String) {
         detailId.value = id
         viewModelScope.launch {

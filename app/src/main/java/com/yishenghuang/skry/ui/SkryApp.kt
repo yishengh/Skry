@@ -1,10 +1,8 @@
 package com.yishenghuang.skry.ui
 
-import android.Manifest
+import android.app.Activity
 import android.app.Application
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.provider.MediaStore
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -38,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yishenghuang.skry.R
@@ -53,6 +50,7 @@ import com.yishenghuang.skry.ui.risk.RiskViewModel
 import com.yishenghuang.skry.ui.theme.SkryColors
 import com.yishenghuang.skry.ui.vault.VaultScreen
 import com.yishenghuang.skry.ui.vault.VaultViewModel
+import com.yishenghuang.skry.util.MediaAccess
 
 private enum class SkryDestination(
     @StringRes val labelRes: Int,
@@ -70,6 +68,7 @@ fun SkryApp() {
     var destination by rememberSaveable { mutableStateOf(SkryDestination.Dashboard) }
     var selectedRiskId by rememberSaveable { mutableStateOf<String?>(null) }
     var vaultBusy by remember { mutableStateOf(false) }
+    var pendingCleanerDeleteIds by remember { mutableStateOf<List<String>>(emptyList()) }
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val dashboardViewModel: DashboardViewModel = viewModel(
@@ -95,15 +94,19 @@ fun SkryApp() {
         destination == SkryDestination.Vault && vaultState.selectedId != null && vaultState.unlocked
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val granted = results.isNotEmpty() && results.values.all { it }
         dashboardViewModel.onPermissionResult(granted)
     }
 
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
-    ) {
-        cleanerViewModel.clearSelection()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            cleanerViewModel.onDeleteCompleted(pendingCleanerDeleteIds)
+        }
+        pendingCleanerDeleteIds = emptyList()
     }
 
     val vaultOriginalDeleteLauncher = rememberLauncherForActivityResult(
@@ -112,12 +115,29 @@ fun SkryApp() {
         // Original gallery delete is optional after vaulting
     }
 
+    fun requestDelete(
+        uris: List<Uri>,
+        photoIds: List<String> = emptyList(),
+        forVaultOriginal: Boolean = false
+    ) {
+        when (val outcome = MediaAccess.deleteMedia(context, uris)) {
+            is MediaAccess.DeleteOutcome.NeedsUserConfirmation -> {
+                val launcher =
+                    if (forVaultOriginal) vaultOriginalDeleteLauncher else deleteLauncher
+                if (!forVaultOriginal) pendingCleanerDeleteIds = photoIds
+                launcher.launch(
+                    IntentSenderRequest.Builder(outcome.intentSender).build()
+                )
+            }
+            MediaAccess.DeleteOutcome.Deleted -> {
+                if (!forVaultOriginal) cleanerViewModel.onDeleteCompleted(photoIds)
+            }
+            MediaAccess.DeleteOutcome.Failed -> Unit
+        }
+    }
+
     LaunchedEffect(Unit) {
-        val granted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_MEDIA_IMAGES
-        ) == PackageManager.PERMISSION_GRANTED
-        dashboardViewModel.onPermissionResult(granted)
+        dashboardViewModel.onPermissionResult(MediaAccess.hasGalleryAccess(context))
     }
 
     LaunchedEffect(selectedRiskId, riskState.items) {
@@ -190,7 +210,7 @@ fun SkryApp() {
                 onDuplicatesClick = { destination = SkryDestination.Clean },
                 onBlurryClick = { destination = SkryDestination.Clean },
                 onRequestPermission = {
-                    permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                    permissionLauncher.launch(MediaAccess.requiredReadPermissions())
                 },
                 onScanNow = dashboardViewModel::scanGallery,
                 modifier = contentModifier
@@ -225,16 +245,7 @@ fun SkryApp() {
                                     selectedRiskId = null
                                     destination = SkryDestination.Vault
                                     if (originalUri != null && originalUri != Uri.EMPTY) {
-                                        runCatching {
-                                            val request = MediaStore.createDeleteRequest(
-                                                context.contentResolver,
-                                                listOf(originalUri)
-                                            )
-                                            vaultOriginalDeleteLauncher.launch(
-                                                IntentSenderRequest.Builder(request.intentSender)
-                                                    .build()
-                                            )
-                                        }
+                                        requestDelete(listOf(originalUri), forVaultOriginal = true)
                                     }
                                 } else {
                                     vaultViewModel.showMessage(
@@ -280,15 +291,10 @@ fun SkryApp() {
                         onDeleteSelected = {
                             val uris = cleanerViewModel.selectedUris()
                             if (uris.isEmpty()) return@CleanerScreen
-                            runCatching {
-                                val request = MediaStore.createDeleteRequest(
-                                    context.contentResolver,
-                                    uris
-                                )
-                                deleteLauncher.launch(
-                                    IntentSenderRequest.Builder(request.intentSender).build()
-                                )
-                            }
+                            requestDelete(
+                                uris = uris,
+                                photoIds = cleanerViewModel.selectedPhotoIds()
+                            )
                         },
                         modifier = contentModifier
                     )
