@@ -38,10 +38,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.ui.components.MonochromeTag
 import com.yishenghuang.skry.ui.components.SkryCard
 import com.yishenghuang.skry.ui.components.SkryEmptyState
@@ -68,8 +70,8 @@ fun CleanerScreen(
             .padding(horizontal = AppDimensions.spaceSm)
     ) {
         SkryScreenHeader(
-            title = "Smart Cleaner",
-            subtitle = "Select to delete · tap a row for detail"
+            title = stringResource(R.string.clean_title),
+            subtitle = stringResource(R.string.clean_subtitle)
         )
 
         Row(
@@ -79,22 +81,22 @@ fun CleanerScreen(
             horizontalArrangement = Arrangement.spacedBy(AppDimensions.spaceXs)
         ) {
             SectionChip(
-                label = "Duplicates ${state.duplicateCount}",
+                label = stringResource(R.string.clean_chip_duplicates, state.duplicateCount),
                 selected = state.section == CleanerSection.Duplicates,
                 onClick = { onSectionSelected(CleanerSection.Duplicates) }
             )
             SectionChip(
-                label = "Blurry ${state.blurryCount}",
+                label = stringResource(R.string.clean_chip_blurry, state.blurryCount),
                 selected = state.section == CleanerSection.Blurry,
                 onClick = { onSectionSelected(CleanerSection.Blurry) }
             )
             SectionChip(
-                label = "Expired ${state.expiredCount}",
+                label = stringResource(R.string.clean_chip_expired, state.expiredCount),
                 selected = state.section == CleanerSection.ExpiredScreenshots,
                 onClick = { onSectionSelected(CleanerSection.ExpiredScreenshots) }
             )
             SectionChip(
-                label = "Long ${state.longCount}",
+                label = stringResource(R.string.clean_chip_long, state.longCount),
                 selected = state.section == CleanerSection.LongScreenshots,
                 onClick = { onSectionSelected(CleanerSection.LongScreenshots) }
             )
@@ -109,11 +111,11 @@ fun CleanerScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onSelectAll) {
-                    Text("Select all", color = SkryColors.Primary)
+                    Text(stringResource(R.string.action_select_all), color = SkryColors.Primary)
                 }
                 if (state.selectedIds.isNotEmpty()) {
                     TextButton(onClick = onClearSelection) {
-                        Text("Clear", color = SkryColors.Accent)
+                        Text(stringResource(R.string.action_clear), color = SkryColors.Accent)
                     }
                 }
             }
@@ -121,8 +123,8 @@ fun CleanerScreen(
 
         if (state.items.isEmpty()) {
             SkryEmptyState(
-                title = "Nothing to clean",
-                subtitle = "Scan from Home. Similar, blurry, and expired screenshots show up here.",
+                title = stringResource(R.string.clean_empty_title),
+                subtitle = stringResource(R.string.clean_empty_subtitle),
                 icon = Icons.Outlined.AutoAwesome,
                 modifier = Modifier.padding(top = AppDimensions.spaceMd)
             )
@@ -160,7 +162,7 @@ fun CleanerScreen(
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
                     Spacer(modifier = Modifier.width(AppDimensions.spaceXs))
-                    Text("Delete ${state.selectedIds.size}")
+                    Text(stringResource(R.string.clean_delete_n, state.selectedIds.size))
                 }
             }
         }
@@ -233,7 +235,7 @@ private fun CleanerRow(
                 if (selected) {
                     Icon(
                         imageVector = Icons.Outlined.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.clean_selected),
                         tint = SkryColors.Primary,
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
@@ -255,7 +257,7 @@ private fun CleanerRow(
                 if (item.starred) {
                     Icon(
                         imageVector = Icons.Outlined.Star,
-                        contentDescription = "Keep",
+                        contentDescription = stringResource(R.string.action_keep),
                         tint = SkryColors.Primary,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -270,7 +272,11 @@ private fun CleanerRow(
                 Spacer(modifier = Modifier.height(AppDimensions.spaceXs))
                 Text(text = item.subtitle, style = Typography.bodyMedium)
                 Text(
-                    text = if (selected) "Selected" else "Open detail",
+                    text = if (selected) {
+                        stringResource(R.string.clean_selected)
+                    } else {
+                        stringResource(R.string.clean_open_detail)
+                    },
                     style = Typography.labelSmall,
                     color = if (selected) SkryColors.Risk else SkryColors.Accent
                 )

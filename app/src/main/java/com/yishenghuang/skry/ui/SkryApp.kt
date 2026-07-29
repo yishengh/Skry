@@ -26,6 +26,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,9 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.ui.cleaner.CleanerDetailScreen
 import com.yishenghuang.skry.ui.cleaner.CleanerScreen
 import com.yishenghuang.skry.ui.cleaner.CleanerViewModel
@@ -52,14 +55,14 @@ import com.yishenghuang.skry.ui.vault.VaultScreen
 import com.yishenghuang.skry.ui.vault.VaultViewModel
 
 private enum class SkryDestination(
-    val label: String,
+    @StringRes val labelRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
-    Dashboard("Home", Icons.Filled.GridView, Icons.Outlined.GridView),
-    Risk("Risk", Icons.Filled.Shield, Icons.Outlined.Shield),
-    Clean("Clean", Icons.Filled.CleaningServices, Icons.Outlined.CleaningServices),
-    Vault("Vault", Icons.Filled.Lock, Icons.Outlined.Lock)
+    Dashboard(R.string.nav_home, Icons.Filled.GridView, Icons.Outlined.GridView),
+    Risk(R.string.nav_risk, Icons.Filled.Shield, Icons.Outlined.Shield),
+    Clean(R.string.nav_clean, Icons.Filled.CleaningServices, Icons.Outlined.CleaningServices),
+    Vault(R.string.nav_vault, Icons.Filled.Lock, Icons.Outlined.Lock)
 }
 
 @Composable
@@ -147,6 +150,7 @@ fun SkryApp() {
                 ) {
                     SkryDestination.entries.forEach { item ->
                         val selected = destination == item
+                        val label = stringResource(item.labelRes)
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
@@ -158,10 +162,10 @@ fun SkryApp() {
                             icon = {
                                 Icon(
                                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                    contentDescription = item.label
+                                    contentDescription = label
                                 )
                             },
-                            label = { Text(item.label) },
+                            label = { Text(label) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = SkryColors.Primary,
                                 selectedTextColor = SkryColors.Primary,
@@ -216,7 +220,7 @@ fun SkryApp() {
                                 vaultBusy = false
                                 if (ok) {
                                     vaultViewModel.showMessage(
-                                        message ?: "Saved to vault"
+                                        message ?: context.getString(R.string.vault_msg_saved)
                                     )
                                     selectedRiskId = null
                                     destination = SkryDestination.Vault
@@ -233,7 +237,9 @@ fun SkryApp() {
                                         }
                                     }
                                 } else {
-                                    vaultViewModel.showMessage(message ?: "Vault failed")
+                                    vaultViewModel.showMessage(
+                                        message ?: context.getString(R.string.vault_msg_failed)
+                                    )
                                 }
                             }
                         },

@@ -38,7 +38,27 @@ Skry audits your photo library locally — OCR + rules for privacy leaks, smart 
 
 Kotlin · Jetpack Compose · Material 3 · Room · WorkManager · ML Kit Text Recognition (bundled) · AndroidX Security Crypto · Biometric
 
-`minSdk 33` · English UI + Latin OCR first
+`minSdk 33` · UI: English + 简体中文 (follows system language) · OCR: Latin / English first
+
+## Roadmap
+
+| Status | Item | Notes |
+|--------|------|--------|
+| Done | Phase 0–1 | Design system, MediaStore + Room index |
+| Done | Phase 2 | Privacy OCR + rules (14 categories) |
+| Done | Phase 3 | Smart Cleaner (duplicates, blur, expired / long shots) |
+| Done | Phase 4 | Safety Vault (mosaic + EncryptedFile + biometric) |
+| Done | i18n | English + Simplified Chinese UI resources |
+| Planned | In-app language picker | Override system locale without changing device language |
+| Planned | More UI locales | e.g. 日本語, Español, Deutsch — string packs only |
+| Planned | Phase 5 vision (optional) | Offline TFLite only if a redistributable model exists — handheld ID, hard docs, memes; no self-training |
+| Planned | Broader OCR scripts | Non-Latin text recognition where bundled models allow |
+| Planned | Vault polish | Batch move-to-vault, export/share redacted copy, clearer delete-original flow |
+| Planned | Cleaner polish | Grouped duplicate UI, keep/delete suggestions per cluster |
+| Planned | Accessibility | TalkBack labels, larger type scale, contrast audit |
+| Maybe | Widget / quick scan | Home-screen health glance — only if it stays fully offline |
+
+See [`docs/SKRY_MASTER_PLAN.md`](docs/SKRY_MASTER_PLAN.md) for detailed phase notes.
 
 ## Build
 
@@ -60,7 +80,7 @@ MediaStore → MediaRepository → Room
      Home · Risk · Clean · Vault (Compose)
 ```
 
-See [`docs/SKRY_MASTER_PLAN.md`](docs/SKRY_MASTER_PLAN.md) for phased delivery notes.
+See the [Roadmap](#roadmap) above and [`docs/SKRY_MASTER_PLAN.md`](docs/SKRY_MASTER_PLAN.md) for more.
 
 ## License
 

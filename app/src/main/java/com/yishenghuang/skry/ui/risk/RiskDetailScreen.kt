@@ -46,12 +46,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.data.UserReviewStatus
 import com.yishenghuang.skry.domain.Finding
+import com.yishenghuang.skry.domain.FindingLabels
 import com.yishenghuang.skry.domain.FindingType
 import com.yishenghuang.skry.ui.components.MonochromeTag
 import com.yishenghuang.skry.ui.components.SkryCard
@@ -88,14 +91,17 @@ fun RiskDetailScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.action_back),
                     tint = SkryColors.OnBackground
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Review risk", style = Typography.titleLarge)
                 Text(
-                    text = "Pinch to zoom · confirm if this is a real leak",
+                    text = stringResource(R.string.risk_detail_title),
+                    style = Typography.titleLarge
+                )
+                Text(
+                    text = stringResource(R.string.risk_detail_subtitle),
                     style = Typography.bodyMedium
                 )
             }
@@ -103,7 +109,7 @@ fun RiskDetailScreen(
 
         if (item == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Photo unavailable", style = Typography.bodyMedium)
+                Text(stringResource(R.string.photo_unavailable), style = Typography.bodyMedium)
             }
             return
         }
@@ -126,27 +132,27 @@ fun RiskDetailScreen(
             when (item.userReview) {
                 UserReviewStatus.CONFIRMED_LEAK ->
                     Text(
-                        text = "Marked as confirmed leak",
+                        text = stringResource(R.string.risk_status_confirmed),
                         style = Typography.labelLarge,
                         color = SkryColors.Risk
                     )
                 UserReviewStatus.DISMISSED ->
                     Text(
-                        text = "Marked as not a leak",
+                        text = stringResource(R.string.risk_status_cleared),
                         style = Typography.labelLarge,
                         color = SkryColors.Accent
                     )
                 UserReviewStatus.NONE ->
                     Text(
-                        text = "Awaiting your confirmation",
+                        text = stringResource(R.string.risk_status_awaiting),
                         style = Typography.labelLarge,
                         color = SkryColors.Primary
                     )
             }
 
-            Text("Detected on this photo", style = Typography.titleMedium)
+            Text(stringResource(R.string.risk_detected_header), style = Typography.titleMedium)
             if (item.findings.isEmpty()) {
-                Text("No structured findings", style = Typography.bodyMedium)
+                Text(stringResource(R.string.risk_no_findings), style = Typography.bodyMedium)
             } else {
                 item.findings.forEach { finding ->
                     FindingRow(finding)
@@ -173,7 +179,13 @@ fun RiskDetailScreen(
                     modifier = Modifier.size(AppDimensions.spaceSm)
                 )
                 Spacer(Modifier.width(AppDimensions.spaceXs))
-                Text(if (vaultBusy) "Saving to vault…" else "Move to Vault")
+                Text(
+                    if (vaultBusy) {
+                        stringResource(R.string.risk_saving_vault)
+                    } else {
+                        stringResource(R.string.risk_move_to_vault)
+                    }
+                )
             }
         }
     }
@@ -204,7 +216,7 @@ private fun ReviewActions(
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
                     Spacer(Modifier.width(AppDimensions.spaceXs))
-                    Text("Not a leak")
+                    Text(stringResource(R.string.risk_not_a_leak))
                 }
                 Button(
                     onClick = onConfirmLeak,
@@ -221,7 +233,7 @@ private fun ReviewActions(
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
                     Spacer(Modifier.width(AppDimensions.spaceXs))
-                    Text("Confirm leak")
+                    Text(stringResource(R.string.risk_confirm_leak))
                 }
             }
             UserReviewStatus.CONFIRMED_LEAK -> {
@@ -237,7 +249,7 @@ private fun ReviewActions(
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
                     Spacer(Modifier.width(AppDimensions.spaceXs))
-                    Text("Not a leak")
+                    Text(stringResource(R.string.risk_not_a_leak))
                 }
                 Button(
                     onClick = onRestore,
@@ -254,7 +266,7 @@ private fun ReviewActions(
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
                     Spacer(Modifier.width(AppDimensions.spaceXs))
-                    Text("Restore")
+                    Text(stringResource(R.string.action_restore))
                 }
             }
             UserReviewStatus.DISMISSED -> {
@@ -270,7 +282,7 @@ private fun ReviewActions(
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
                     Spacer(Modifier.width(AppDimensions.spaceXs))
-                    Text("Confirm leak")
+                    Text(stringResource(R.string.risk_confirm_leak))
                 }
                 Button(
                     onClick = onRestore,
@@ -287,7 +299,7 @@ private fun ReviewActions(
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )
                     Spacer(Modifier.width(AppDimensions.spaceXs))
-                    Text("Restore")
+                    Text(stringResource(R.string.action_restore))
                 }
             }
         }
@@ -301,13 +313,16 @@ private fun FindingRow(finding: Finding) {
         contentPadding = PaddingValues(AppDimensions.spaceSm)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(AppDimensions.spaceXxxs)) {
-            MonochromeTag(text = finding.label)
+            MonochromeTag(text = stringResource(FindingLabels.titleRes(finding.type)))
             Text(
-                text = finding.snippet ?: "Detected by on-device rules",
+                text = finding.snippet ?: stringResource(R.string.risk_finding_fallback),
                 style = Typography.bodyMedium
             )
             Text(
-                text = "Confidence ${(finding.confidence * 100).toInt()}%",
+                text = stringResource(
+                    R.string.risk_confidence,
+                    (finding.confidence * 100).toInt()
+                ),
                 style = Typography.labelSmall
             )
         }
@@ -352,7 +367,7 @@ private fun ZoomablePhoto(
                 .data(uri)
                 .crossfade(true)
                 .build(),
-            contentDescription = "Risk photo",
+            contentDescription = stringResource(R.string.risk_detail_title),
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()

@@ -42,10 +42,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.ui.components.MonochromeTag
 import com.yishenghuang.skry.ui.components.SkryCard
 import com.yishenghuang.skry.ui.theme.AppDimensions
@@ -80,19 +82,22 @@ fun CleanerDetailScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.action_back),
                     tint = SkryColors.OnBackground
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Cleaner detail", style = Typography.titleLarge)
-                Text("Pinch to zoom · related matches below", style = Typography.bodyMedium)
+                Text(stringResource(R.string.clean_detail_title), style = Typography.titleLarge)
+                Text(
+                    stringResource(R.string.clean_detail_subtitle),
+                    style = Typography.bodyMedium
+                )
             }
         }
 
         if (item == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Photo unavailable", style = Typography.bodyMedium)
+            Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(stringResource(R.string.photo_unavailable), style = Typography.bodyMedium)
             }
             return
         }
@@ -118,7 +123,7 @@ fun CleanerDetailScreen(
                     )
                     Spacer(Modifier.width(AppDimensions.spaceXs))
                     Text(
-                        "Best pick in this duplicate group",
+                        stringResource(R.string.clean_best_pick),
                         style = Typography.labelLarge,
                         color = SkryColors.Primary
                     )
@@ -127,15 +132,18 @@ fun CleanerDetailScreen(
             if (state.reason.isNotBlank()) {
                 SkryCard(minHeight = AppDimensions.spaceXxl) {
                     Column(verticalArrangement = Arrangement.spacedBy(AppDimensions.spaceXxxs)) {
-                        Text("Why it appears here", style = Typography.titleMedium)
+                        Text(
+                            stringResource(R.string.clean_why_here),
+                            style = Typography.titleMedium
+                        )
                         Text(state.reason, style = Typography.bodyMedium)
                     }
                 }
             }
             if (state.related.isNotEmpty()) {
-                Text("Related similar photos", style = Typography.titleMedium)
+                Text(stringResource(R.string.clean_related), style = Typography.titleMedium)
                 Text(
-                    "Matched by visual fingerprint (near-duplicates)",
+                    stringResource(R.string.clean_related_hint),
                     style = Typography.labelSmall
                 )
                 LazyRow(
@@ -175,7 +183,11 @@ private fun RelatedThumb(item: CleanerItem, onClick: () -> Unit) {
             )
             Text(item.title, style = Typography.labelSmall)
             if (item.starred) {
-                Text("Keep", style = Typography.labelSmall, color = SkryColors.Primary)
+                Text(
+                    stringResource(R.string.action_keep),
+                    style = Typography.labelSmall,
+                    color = SkryColors.Primary
+                )
             }
         }
     }

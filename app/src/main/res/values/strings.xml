@@ -1,4 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Skry</string>
     <string name="app_tagline">On-device gallery privacy</string>
+
+    <!-- Nav -->
+    <string name="nav_home">Home</string>
+    <string name="nav_risk">Risk</string>
+    <string name="nav_clean">Clean</string>
+    <string name="nav_vault">Vault</string>
+
+    <!-- Common -->
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_clear_selection">Clear selection</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_keep">Keep</string>
+    <string name="photo_unavailable">Photo unavailable</string>
+    <string name="n_selected">%1$d selected</string>
+
+    <!-- Splash -->
+    <string name="splash_tagline">On-device gallery privacy</string>
+
+    <!-- Home / Dashboard -->
+    <string name="home_title">Gallery Health</string>
+    <string name="home_subtitle">On-device scan · nothing leaves this phone</string>
+    <string name="home_health_label">HEALTH</string>
+    <string name="home_scan_now">Scan now</string>
+    <string name="home_scan_resume">Resume</string>
+    <string name="home_scanning">Scanning…</string>
+    <string name="home_stats_ready">%1$d photos · %2$d audited · tap ring to scan</string>
+    <string name="home_stats_need_permission">Grant access, then tap the ring to scan</string>
+    <string name="home_scan_in_progress">Scan in progress</string>
+    <string name="home_scan_paused">Scan paused</string>
+    <string name="home_scan_progress_detail">%1$d done · %2$d left</string>
+    <string name="home_allow_access_title">Allow photo access</string>
+    <string name="home_allow_access_body">Skry reads your gallery locally. This build has no network permission.</string>
+    <string name="home_grant_access">Grant access</string>
+    <string name="home_privacy_risks">Privacy risks</string>
+    <string name="home_needs_review">Needs review</string>
+    <string name="home_duplicates">Duplicates</string>
+    <string name="home_blurry">Blurry</string>
+    <string name="home_msg_scanning">Scanning %1$d / %2$d · %3$d left</string>
+    <string name="home_msg_paused">Scan paused · %1$d left · tap ring to resume</string>
+    <string name="home_msg_all_audited">All %1$d audited · %2$d risks</string>
+    <string name="home_msg_indexed">%1$d indexed · tap the ring to audit</string>
+    <string name="home_msg_need_permission">Photo access is required to audit your gallery.</string>
+    <string name="home_msg_indexing">Indexing gallery…</string>
+    <string name="home_msg_up_to_date">Up to date · %1$d already audited</string>
+    <string name="home_msg_scanning_pending">Scanning · %1$d left</string>
+    <string name="home_msg_scan_failed">Scan failed. Try again.</string>
+
+    <!-- Risk -->
+    <string name="risk_title">Risk Explorer</string>
+    <string name="risk_subtitle">Select to batch-review · tap a photo to open</string>
+    <string name="risk_filter_review">Review</string>
+    <string name="risk_filter_confirmed">Confirmed</string>
+    <string name="risk_filter_cleared">Cleared</string>
+    <string name="risk_category">Category</string>
+    <string name="risk_all_categories">All categories</string>
+    <string name="risk_empty_review">Nothing to review</string>
+    <string name="risk_empty_confirmed">No confirmed risks</string>
+    <string name="risk_empty_cleared">No cleared items</string>
+    <string name="risk_empty_subtitle">Scan from Home, or switch filters to find reviewed items.</string>
+    <string name="risk_not_a_leak">Not a leak</string>
+    <string name="risk_confirm_leak">Confirm leak</string>
+    <string name="risk_confirm_short">Confirm</string>
+    <string name="risk_detail_title">Review risk</string>
+    <string name="risk_detail_subtitle">Pinch to zoom · confirm if this is a real leak</string>
+    <string name="risk_status_awaiting">Awaiting your confirmation</string>
+    <string name="risk_status_confirmed">Marked as confirmed leak</string>
+    <string name="risk_status_cleared">Marked as not a leak</string>
+    <string name="risk_detected_header">Detected on this photo</string>
+    <string name="risk_no_findings">No structured findings</string>
+    <string name="risk_confidence">Confidence %1$d%%</string>
+    <string name="risk_finding_fallback">Detected by on-device rules</string>
+    <string name="risk_move_to_vault">Move to Vault</string>
+    <string name="risk_saving_vault">Saving to vault…</string>
+    <string name="risk_selected">Selected</string>
+
+    <!-- Finding types -->
+    <string name="finding_passport">Passport</string>
+    <string name="finding_identity_card">Identity Card</string>
+    <string name="finding_credit_card">Credit Card</string>
+    <string name="finding_phone">Phone Number</string>
+    <string name="finding_email">Email Address</string>
+    <string name="finding_address">Physical Address</string>
+    <string name="finding_ssn">SSN-like</string>
+    <string name="finding_iban">IBAN</string>
+    <string name="finding_dob">Date of Birth</string>
+    <string name="finding_ip">IP Address</string>
+    <string name="finding_secret">Secret / API Token</string>
+    <string name="finding_sensitive_screenshot">Sensitive Screenshot</string>
+    <string name="finding_location_exif">Location EXIF</string>
+    <string name="finding_possible_id">Possible ID Photo</string>
+    <string name="finding_generic">Risk</string>
+
+    <string name="finding_desc_passport">MRZ lines and passport keywords</string>
+    <string name="finding_desc_identity_card">ID / driver license document keywords</string>
+    <string name="finding_desc_credit_card">13–19 digit PANs (Luhn or card-like)</string>
+    <string name="finding_desc_phone">US / international phone-like numbers</string>
+    <string name="finding_desc_email">Standard email patterns</string>
+    <string name="finding_desc_address">Street address, city/state/ZIP heuristics</string>
+    <string name="finding_desc_ssn">Patterns like 123-45-6789</string>
+    <string name="finding_desc_iban">International bank account numbers</string>
+    <string name="finding_desc_dob">DOB keywords near a date</string>
+    <string name="finding_desc_ip">IPv4 addresses in screenshots / docs</string>
+    <string name="finding_desc_secret">API keys, bearer tokens, sk_live / AKIA</string>
+    <string name="finding_desc_sensitive_screenshot">OTP, password, account, verification codes</string>
+    <string name="finding_desc_location_exif">Precise GPS still embedded in the file</string>
+    <string name="finding_desc_possible_id">Low-confidence document heuristic</string>
+
+    <!-- Cleaner -->
+    <string name="clean_title">Smart Cleaner</string>
+    <string name="clean_subtitle">Select to delete · tap a row for detail</string>
+    <string name="clean_chip_duplicates">Duplicates %1$d</string>
+    <string name="clean_chip_blurry">Blurry %1$d</string>
+    <string name="clean_chip_expired">Expired %1$d</string>
+    <string name="clean_chip_long">Long %1$d</string>
+    <string name="clean_empty_title">Nothing to clean</string>
+    <string name="clean_empty_subtitle">Scan from Home. Similar, blurry, and expired screenshots show up here.</string>
+    <string name="clean_delete_n">Delete %1$d</string>
+    <string name="clean_open_detail">Open detail</string>
+    <string name="clean_selected">Selected</string>
+    <string name="clean_item_duplicate">Duplicate</string>
+    <string name="clean_item_duplicate_sub">Keep starred pick · safe to remove extras</string>
+    <string name="clean_item_blurry">Blurry</string>
+    <string name="clean_item_blurry_sub">Low sharpness · quality %1$d</string>
+    <string name="clean_item_expired">Expired screenshot</string>
+    <string name="clean_item_expired_sub">Sensitive screenshot older than 7 days</string>
+    <string name="clean_item_long">Long screenshot</string>
+    <string name="clean_item_long_sub">Unusual aspect ratio</string>
+    <string name="clean_detail_title">Cleaner detail</string>
+    <string name="clean_detail_subtitle">Pinch to zoom · related matches below</string>
+    <string name="clean_why_here">Why it appears here</string>
+    <string name="clean_related">Related similar photos</string>
+    <string name="clean_related_hint">Matched by visual fingerprint (near-duplicates)</string>
+    <string name="clean_best_pick">Best pick in this duplicate group</string>
+    <string name="clean_similar">Similar</string>
+    <string name="clean_quality">Quality %1$d</string>
+    <string name="clean_reason_dup_keep">Looks nearly identical to other shots. This is the best keep candidate.</string>
+    <string name="clean_reason_dup_extra">Looks nearly identical to other shots. A sharper twin is marked Keep.</string>
+    <string name="clean_reason_blurry">Looks soft or motion-blurred compared with nearby photos.</string>
+    <string name="clean_reason_expired">Sensitive screenshot older than 7 days.</string>
+    <string name="clean_reason_long">Very tall screenshot — usually a scrolling capture.</string>
+
+    <!-- Vault -->
+    <string name="vault_title">Safety Vault</string>
+    <string name="vault_subtitle_locked">Encrypted on-device · unlock to view</string>
+    <string name="vault_subtitle_unlocked">%1$d encrypted · session unlocked</string>
+    <string name="vault_lock">Lock</string>
+    <string name="vault_locked_title">Vault locked</string>
+    <string name="vault_locked_title_n">%1$d items locked</string>
+    <string name="vault_locked_subtitle">Authenticate to open redacted copies. Keys stay in Android Keystore.</string>
+    <string name="vault_unlock_biometrics">Unlock with biometrics</string>
+    <string name="vault_unlock_device">Use device lock</string>
+    <string name="vault_empty_title">Vault is empty</string>
+    <string name="vault_empty_subtitle">From a risk photo, choose Move to Vault to save a mosaicked encrypted copy.</string>
+    <string name="vault_item_title">Vault item</string>
+    <string name="vault_item_subtitle">Visible for this unlock session</string>
+    <string name="vault_preview_unavailable">Preview unavailable</string>
+    <string name="vault_detail_body">Sensitive areas were mosaicked before encryption. Your original gallery file stays until you delete it.</string>
+    <string name="vault_delete">Delete from vault</string>
+    <string name="vault_item_row_sub">Redacted · encrypted here</string>
+    <string name="vault_prompt_title">Unlock Safety Vault</string>
+    <string name="vault_prompt_subtitle">Skry never leaves this device</string>
+    <string name="vault_err_host">Biometric host unavailable</string>
+    <string name="vault_err_none_enrolled">No biometrics or device lock enrolled</string>
+    <string name="vault_err_unavailable">Biometrics unavailable on this device</string>
+    <string name="vault_err_missing_file">Vault file missing</string>
+    <string name="vault_err_decrypt">Decrypt failed</string>
+    <string name="vault_err_delete">Delete failed</string>
+    <string name="vault_msg_removed">Removed from vault</string>
+    <string name="vault_msg_saved">Saved to vault</string>
+    <string name="vault_msg_failed">Vault failed</string>
+    <string name="vault_msg_already">Already in vault</string>
 </resources>

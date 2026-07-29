@@ -43,9 +43,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.ui.components.MonochromeTag
 import com.yishenghuang.skry.ui.components.SkryCard
 import com.yishenghuang.skry.ui.components.SkryEmptyState
@@ -86,18 +88,18 @@ fun VaultScreen(
             .padding(horizontal = AppDimensions.spaceSm)
     ) {
         SkryScreenHeader(
-            title = "Safety Vault",
+            title = stringResource(R.string.vault_title),
             subtitle = if (state.unlocked) {
-                "${state.count} encrypted · session unlocked"
+                stringResource(R.string.vault_subtitle_unlocked, state.count)
             } else {
-                "Encrypted on-device · unlock to view"
+                stringResource(R.string.vault_subtitle_locked)
             },
             trailing = if (state.unlocked) {
                 {
                     TextButton(onClick = onLock) {
                         Icon(Icons.Outlined.Lock, contentDescription = null, tint = SkryColors.Accent)
                         Spacer(Modifier.width(AppDimensions.spaceXxxs))
-                        Text("Lock", color = SkryColors.Accent)
+                        Text(stringResource(R.string.vault_lock), color = SkryColors.Accent)
                     }
                 }
             } else {
@@ -113,13 +115,17 @@ fun VaultScreen(
             ) {
                 Text(msg, style = Typography.bodyMedium, color = SkryColors.Primary)
             }
-            Spacer(modifier.height(AppDimensions.spaceSm))
+            Spacer(Modifier.height(AppDimensions.spaceSm))
         }
 
         if (!state.unlocked) {
             SkryEmptyState(
-                title = if (state.count > 0) "${state.count} items locked" else "Vault locked",
-                subtitle = "Authenticate to open redacted copies. Keys stay in Android Keystore.",
+                title = if (state.count > 0) {
+                    stringResource(R.string.vault_locked_title_n, state.count)
+                } else {
+                    stringResource(R.string.vault_locked_title)
+                },
+                subtitle = stringResource(R.string.vault_locked_subtitle),
                 icon = Icons.Outlined.Lock,
                 modifier = Modifier.padding(top = AppDimensions.spaceSm)
             )
@@ -127,7 +133,7 @@ fun VaultScreen(
             Button(
                 onClick = {
                     if (activity == null) {
-                        onUnlockFailed("Biometric host unavailable")
+                        onUnlockFailed(context.getString(R.string.vault_err_host))
                         return@Button
                     }
                     launchBiometric(
@@ -145,13 +151,13 @@ fun VaultScreen(
             ) {
                 Icon(Icons.Outlined.Fingerprint, contentDescription = null)
                 Spacer(Modifier.width(AppDimensions.spaceXs))
-                Text("Unlock with biometrics")
+                Text(stringResource(R.string.vault_unlock_biometrics))
             }
             Spacer(Modifier.height(AppDimensions.spaceSm))
             OutlinedButton(
                 onClick = {
                     if (activity == null) {
-                        onUnlockFailed("Biometric host unavailable")
+                        onUnlockFailed(context.getString(R.string.vault_err_host))
                         return@OutlinedButton
                     }
                     launchBiometric(
@@ -167,12 +173,12 @@ fun VaultScreen(
             ) {
                 Icon(Icons.Outlined.LockOpen, contentDescription = null)
                 Spacer(Modifier.width(AppDimensions.spaceXs))
-                Text("Use device lock")
+                Text(stringResource(R.string.vault_unlock_device))
             }
         } else if (state.items.isEmpty()) {
             SkryEmptyState(
-                title = "Vault is empty",
-                subtitle = "From a risk photo, choose Move to Vault to save a mosaicked encrypted copy.",
+                title = stringResource(R.string.vault_empty_title),
+                subtitle = stringResource(R.string.vault_empty_subtitle),
                 icon = Icons.Outlined.LockOpen,
                 modifier = Modifier.padding(top = AppDimensions.spaceSm)
             )
@@ -240,13 +246,16 @@ private fun VaultDetailPane(
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.action_back),
                     tint = SkryColors.OnBackground
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Vault item", style = Typography.titleLarge)
-                Text("Visible for this unlock session", style = Typography.bodyMedium)
+                Text(stringResource(R.string.vault_item_title), style = Typography.titleLarge)
+                Text(
+                    stringResource(R.string.vault_item_subtitle),
+                    style = Typography.bodyMedium
+                )
             }
         }
 
@@ -269,12 +278,15 @@ private fun VaultDetailPane(
                 when {
                     state.loadingPreview -> CircularProgressIndicator(color = SkryColors.Primary)
                     state.preview != null -> VaultBitmap(state.preview)
-                    else -> Text("Preview unavailable", style = Typography.bodyMedium)
+                    else -> Text(
+                        stringResource(R.string.vault_preview_unavailable),
+                        style = Typography.bodyMedium
+                    )
                 }
             }
 
             Text(
-                "Sensitive areas were mosaicked before encryption. Your original gallery file stays until you delete it.",
+                stringResource(R.string.vault_detail_body),
                 style = Typography.bodyMedium
             )
 
@@ -290,7 +302,7 @@ private fun VaultDetailPane(
             ) {
                 Icon(Icons.Outlined.DeleteOutline, contentDescription = null)
                 Spacer(Modifier.width(AppDimensions.spaceXs))
-                Text("Delete from vault")
+                Text(stringResource(R.string.vault_delete))
             }
         }
     }
@@ -300,7 +312,7 @@ private fun VaultDetailPane(
 private fun VaultBitmap(bitmap: Bitmap) {
     Image(
         bitmap = bitmap.asImageBitmap(),
-        contentDescription = "Vault photo",
+        contentDescription = stringResource(R.string.vault_item_title),
         contentScale = ContentScale.Fit,
         modifier = Modifier.fillMaxSize()
     )
@@ -322,12 +334,12 @@ private fun launchBiometric(
     when (manager.canAuthenticate(authenticators)) {
         BiometricManager.BIOMETRIC_SUCCESS -> Unit
         BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-            onError("No biometrics or device lock enrolled")
+            onError(activity.getString(R.string.vault_err_none_enrolled))
             return
         }
         else -> {
             if (!allowDeviceCredential) {
-                onError("Biometrics unavailable on this device")
+                onError(activity.getString(R.string.vault_err_unavailable))
                 return
             }
         }
@@ -352,11 +364,11 @@ private fun launchBiometric(
         }
     )
     val builder = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Unlock Safety Vault")
-        .setSubtitle("Skry never leaves this device")
+        .setTitle(activity.getString(R.string.vault_prompt_title))
+        .setSubtitle(activity.getString(R.string.vault_prompt_subtitle))
         .setAllowedAuthenticators(authenticators)
     if (!allowDeviceCredential) {
-        builder.setNegativeButtonText("Cancel")
+        builder.setNegativeButtonText(activity.getString(R.string.action_cancel))
     }
     prompt.authenticate(builder.build())
 }

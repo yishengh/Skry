@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.HighlightOff
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.automirrored.outlined.Undo
@@ -52,10 +51,12 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.data.UserReviewStatus
 import com.yishenghuang.skry.domain.DetectableCategories
 import com.yishenghuang.skry.domain.Finding
@@ -85,10 +86,12 @@ fun RiskExplorerScreen(
     modifier: Modifier = Modifier
 ) {
     var categoryExpanded by remember { mutableStateOf(false) }
-    val categoryLabel = state.categories
-        .firstOrNull { it.type == state.categoryFilter }
-        ?.title
-        ?: "All categories"
+    val matchedCategory = state.categories.firstOrNull { it.type == state.categoryFilter }
+    val categoryLabel = if (matchedCategory != null) {
+        stringResource(matchedCategory.titleRes)
+    } else {
+        stringResource(R.string.risk_all_categories)
+    }
 
     Column(
         modifier = modifier
@@ -96,21 +99,30 @@ fun RiskExplorerScreen(
             .padding(horizontal = AppDimensions.spaceSm)
     ) {
         SkryScreenHeader(
-            title = "Risk Explorer",
-            subtitle = "Select to batch-review · tap a photo to open"
+            title = stringResource(R.string.risk_title),
+            subtitle = stringResource(R.string.risk_subtitle)
         )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(AppDimensions.spaceXs)
         ) {
-            RiskFilterChip("Review", state.filter == RiskListFilter.NeedsReview) {
+            RiskFilterChip(
+                label = stringResource(R.string.risk_filter_review),
+                selected = state.filter == RiskListFilter.NeedsReview
+            ) {
                 onFilterChange(RiskListFilter.NeedsReview)
             }
-            RiskFilterChip("Confirmed", state.filter == RiskListFilter.Confirmed) {
+            RiskFilterChip(
+                label = stringResource(R.string.risk_filter_confirmed),
+                selected = state.filter == RiskListFilter.Confirmed
+            ) {
                 onFilterChange(RiskListFilter.Confirmed)
             }
-            RiskFilterChip("Cleared", state.filter == RiskListFilter.Cleared) {
+            RiskFilterChip(
+                label = stringResource(R.string.risk_filter_cleared),
+                selected = state.filter == RiskListFilter.Cleared
+            ) {
                 onFilterChange(RiskListFilter.Cleared)
             }
         }
@@ -125,7 +137,7 @@ fun RiskExplorerScreen(
                 value = categoryLabel,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Category") },
+                label = { Text(stringResource(R.string.risk_category)) },
                 trailingIcon = {
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded)
                 },
@@ -148,7 +160,12 @@ fun RiskExplorerScreen(
                 containerColor = SkryColors.Surface
             ) {
                 DropdownMenuItem(
-                    text = { Text("All categories", color = SkryColors.OnBackground) },
+                    text = {
+                        Text(
+                            stringResource(R.string.risk_all_categories),
+                            color = SkryColors.OnBackground
+                        )
+                    },
                     onClick = {
                         onCategoryChange(null)
                         categoryExpanded = false
@@ -158,8 +175,14 @@ fun RiskExplorerScreen(
                     DropdownMenuItem(
                         text = {
                             Column {
-                                Text(category.title, color = SkryColors.OnBackground)
-                                Text(category.description, style = Typography.labelSmall)
+                                Text(
+                                    stringResource(category.titleRes),
+                                    color = SkryColors.OnBackground
+                                )
+                                Text(
+                                    stringResource(category.descriptionRes),
+                                    style = Typography.labelSmall
+                                )
                             }
                         },
                         onClick = {
@@ -179,11 +202,14 @@ fun RiskExplorerScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(onClick = onSelectAll) {
-                    Text("Select all", color = SkryColors.Primary)
+                    Text(stringResource(R.string.action_select_all), color = SkryColors.Primary)
                 }
                 if (state.selectedIds.isNotEmpty()) {
                     TextButton(onClick = onClearSelection) {
-                        Text("Clear selection", color = SkryColors.Accent)
+                        Text(
+                            stringResource(R.string.action_clear_selection),
+                            color = SkryColors.Accent
+                        )
                     }
                 }
             }
@@ -192,11 +218,11 @@ fun RiskExplorerScreen(
         if (state.items.isEmpty()) {
             SkryEmptyState(
                 title = when (state.filter) {
-                    RiskListFilter.NeedsReview -> "Nothing to review"
-                    RiskListFilter.Confirmed -> "No confirmed risks"
-                    RiskListFilter.Cleared -> "No cleared items"
+                    RiskListFilter.NeedsReview -> stringResource(R.string.risk_empty_review)
+                    RiskListFilter.Confirmed -> stringResource(R.string.risk_empty_confirmed)
+                    RiskListFilter.Cleared -> stringResource(R.string.risk_empty_cleared)
                 },
-                subtitle = "Scan from Home, or switch filters to find reviewed items.",
+                subtitle = stringResource(R.string.risk_empty_subtitle),
                 icon = Icons.Outlined.VerifiedUser,
                 modifier = Modifier.padding(top = AppDimensions.spaceMd)
             )
@@ -243,7 +269,7 @@ private fun BatchBar(
             .padding(vertical = AppDimensions.spaceSm),
         verticalArrangement = Arrangement.spacedBy(AppDimensions.spaceXs)
     ) {
-        Text("$count selected", style = Typography.labelSmall)
+        Text(stringResource(R.string.n_selected, count), style = Typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(AppDimensions.spaceSm)) {
             when (filter) {
                 RiskListFilter.Cleared -> {
@@ -258,7 +284,7 @@ private fun BatchBar(
                     ) {
                         Icon(Icons.AutoMirrored.Outlined.Undo, null, Modifier.size(AppDimensions.spaceSm))
                         Spacer(Modifier.width(AppDimensions.spaceXs))
-                        Text("Restore")
+                        Text(stringResource(R.string.action_restore))
                     }
                 }
                 else -> {
@@ -270,7 +296,7 @@ private fun BatchBar(
                     ) {
                         Icon(Icons.Outlined.HighlightOff, null, Modifier.size(AppDimensions.spaceSm))
                         Spacer(Modifier.width(AppDimensions.spaceXs))
-                        Text("Not a leak")
+                        Text(stringResource(R.string.risk_not_a_leak))
                     }
                     Button(
                         onClick = onConfirm,
@@ -283,7 +309,7 @@ private fun BatchBar(
                     ) {
                         Icon(Icons.Outlined.CheckCircle, null, Modifier.size(AppDimensions.spaceSm))
                         Spacer(Modifier.width(AppDimensions.spaceXs))
-                        Text("Confirm")
+                        Text(stringResource(R.string.risk_confirm_short))
                     }
                 }
             }
@@ -352,7 +378,7 @@ private fun RiskRowCard(
                 if (selected) {
                     Icon(
                         imageVector = Icons.Outlined.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.risk_selected),
                         tint = SkryColors.Primary,
                         modifier = Modifier.size(AppDimensions.spaceSm)
                     )

@@ -7,9 +7,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.SkryApplication
 import com.yishenghuang.skry.data.MediaRepository
 import com.yishenghuang.skry.data.PhotoEntity
+import com.yishenghuang.skry.domain.FindingLabels
 import com.yishenghuang.skry.domain.FindingsJson
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +44,7 @@ class VaultViewModel(
     private val repository: MediaRepository
 ) : AndroidViewModel(application) {
 
+    private val app get() = getApplication<Application>()
     private val unlocked = MutableStateFlow(false)
     private val selectedId = MutableStateFlow<String?>(null)
     private val preview = MutableStateFlow<Bitmap?>(null)
@@ -68,7 +71,11 @@ class VaultViewModel(
         VaultUiState(
             unlocked = sess.unlocked,
             count = count,
-            items = if (sess.unlocked) photos.map { it.toVaultItem() } else emptyList(),
+            items = if (sess.unlocked) {
+                photos.map { it.toVaultItem(app) }
+            } else {
+                emptyList()
+            },
             selectedId = sess.selectedId,
             preview = sess.preview,
             loadingPreview = sess.loadingPreview,
@@ -110,7 +117,7 @@ class VaultViewModel(
 
             if (fileName.isNullOrBlank()) {
                 loadingPreview.value = false
-                message.value = "Vault file missing"
+                message.value = app.getString(R.string.vault_err_missing_file)
                 return@launch
             }
             runCatching {
@@ -119,7 +126,7 @@ class VaultViewModel(
             }.onSuccess { bitmap ->
                 preview.value = bitmap
             }.onFailure {
-                message.value = it.message ?: "Decrypt failed"
+                message.value = it.message ?: app.getString(R.string.vault_err_decrypt)
             }
             loadingPreview.value = false
         }
@@ -139,10 +146,10 @@ class VaultViewModel(
             runCatching { repository.deleteFromVault(id) }
                 .onSuccess {
                     closeDetail()
-                    message.value = "Removed from vault"
+                    message.value = app.getString(R.string.vault_msg_removed)
                 }
                 .onFailure {
-                    message.value = it.message ?: "Delete failed"
+                    message.value = it.message ?: app.getString(R.string.vault_err_delete)
                 }
             busy.value = false
         }
@@ -168,13 +175,16 @@ class VaultViewModel(
     }
 }
 
-private fun PhotoEntity.toVaultItem(): VaultItem {
+private fun PhotoEntity.toVaultItem(app: Application): VaultItem {
     val findings = FindingsJson.decode(findingsJson)
     val primary = findings.maxByOrNull { it.confidence }
+    val title = primary?.let { app.getString(FindingLabels.titleRes(it.type)) }
+        ?: displayName
+        ?: app.getString(R.string.vault_item_title)
     return VaultItem(
         id = id,
-        title = primary?.label ?: displayName ?: "Vault photo",
-        subtitle = "Redacted · encrypted here",
+        title = title,
+        subtitle = app.getString(R.string.vault_item_row_sub),
         fileName = vaultFileName.orEmpty(),
         vaultedAt = vaultedAt ?: 0L
     )

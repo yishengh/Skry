@@ -27,7 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.ui.components.HealthProgressRing
 import com.yishenghuang.skry.ui.components.SkryAnimatedBackdrop
 import com.yishenghuang.skry.ui.components.SkryCard
@@ -57,15 +59,15 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(AppDimensions.spaceMd)
         ) {
             SkryScreenHeader(
-                title = "Gallery Health",
-                subtitle = "On-device scan · nothing leaves this phone"
+                title = stringResource(R.string.home_title),
+                subtitle = stringResource(R.string.home_subtitle)
             )
 
             val ringAction = when {
                 !state.hasPermission -> null
-                state.isScanning -> "Scanning…"
-                state.pendingCount > 0 -> "Resume"
-                else -> "Scan now"
+                state.isScanning -> stringResource(R.string.home_scanning)
+                state.pendingCount > 0 -> stringResource(R.string.home_scan_resume)
+                else -> stringResource(R.string.home_scan_now)
             }
 
             Box(
@@ -76,7 +78,7 @@ fun DashboardScreen(
             ) {
                 HealthProgressRing(
                     progress = state.healthScore,
-                    label = "HEALTH",
+                    label = stringResource(R.string.home_health_label),
                     actionLabel = ringAction,
                     enabled = state.hasPermission && !state.isScanning,
                     onClick = if (state.hasPermission) onScanNow else null
@@ -85,9 +87,13 @@ fun DashboardScreen(
 
             Text(
                 text = if (state.hasPermission) {
-                    "${state.libraryCount} photos · ${state.auditedCount} audited · tap ring to scan"
+                    stringResource(
+                        R.string.home_stats_ready,
+                        state.libraryCount,
+                        state.auditedCount
+                    )
                 } else {
-                    "Grant access, then tap the ring to scan"
+                    stringResource(R.string.home_stats_need_permission)
                 },
                 style = Typography.labelSmall,
                 color = SkryColors.Accent,
@@ -98,7 +104,11 @@ fun DashboardScreen(
                 SkryCard(minHeight = AppDimensions.spaceXxl) {
                     Column(verticalArrangement = Arrangement.spacedBy(AppDimensions.spaceXs)) {
                         Text(
-                            text = if (state.isScanning) "Scan in progress" else "Scan paused",
+                            text = if (state.isScanning) {
+                                stringResource(R.string.home_scan_in_progress)
+                            } else {
+                                stringResource(R.string.home_scan_paused)
+                            },
                             style = Typography.titleMedium
                         )
                         LinearProgressIndicator(
@@ -111,7 +121,11 @@ fun DashboardScreen(
                             strokeCap = StrokeCap.Round
                         )
                         Text(
-                            text = "${state.auditedCount} done · ${state.pendingCount} left",
+                            text = stringResource(
+                                R.string.home_scan_progress_detail,
+                                state.auditedCount,
+                                state.pendingCount
+                            ),
                             style = Typography.labelSmall
                         )
                     }
@@ -125,9 +139,12 @@ fun DashboardScreen(
             if (!state.hasPermission) {
                 SkryCard(minHeight = AppDimensions.bentoMinHeight) {
                     Column(verticalArrangement = Arrangement.spacedBy(AppDimensions.spaceSm)) {
-                        Text("Allow photo access", style = Typography.titleLarge)
                         Text(
-                            text = "Skry reads your gallery locally. This build has no network permission.",
+                            stringResource(R.string.home_allow_access_title),
+                            style = Typography.titleLarge
+                        )
+                        Text(
+                            text = stringResource(R.string.home_allow_access_body),
                             style = Typography.bodyMedium
                         )
                         Button(
@@ -138,7 +155,7 @@ fun DashboardScreen(
                                 contentColor = SkryColors.OnBackground
                             )
                         ) {
-                            Text("Grant access")
+                            Text(stringResource(R.string.home_grant_access))
                         }
                     }
                 }
@@ -162,11 +179,14 @@ fun DashboardScreen(
                             contentDescription = null,
                             tint = SkryColors.Primary
                         )
-                        Text(text = "Privacy risks", style = Typography.titleLarge)
+                        Text(
+                            text = stringResource(R.string.home_privacy_risks),
+                            style = Typography.titleLarge
+                        )
                     }
                     Column {
                         Text(
-                            text = "Needs review",
+                            text = stringResource(R.string.home_needs_review),
                             style = Typography.labelSmall,
                             color = SkryColors.Accent
                         )
@@ -185,14 +205,14 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(AppDimensions.spaceSm)
             ) {
                 MetricMiniCard(
-                    title = "Duplicates",
+                    title = stringResource(R.string.home_duplicates),
                     count = state.duplicateCount,
                     icon = Icons.Outlined.ContentCopy,
                     onClick = onDuplicatesClick,
                     modifier = Modifier.weight(1f)
                 )
                 MetricMiniCard(
-                    title = "Blurry",
+                    title = stringResource(R.string.home_blurry),
                     count = state.blurryCount,
                     icon = Icons.Outlined.BlurOn,
                     onClick = onBlurryClick,

@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.SkryApplication
 import com.yishenghuang.skry.data.MediaRepository
 import com.yishenghuang.skry.data.PhotoEntity
@@ -46,6 +47,7 @@ class CleanerViewModel(
     private val repository: MediaRepository
 ) : AndroidViewModel(application) {
 
+    private val app get() = getApplication<Application>()
     private val section = MutableStateFlow(CleanerSection.Duplicates)
     private val selectedIds = MutableStateFlow<Set<String>>(emptySet())
     private val detailId = MutableStateFlow<String?>(null)
@@ -78,27 +80,30 @@ class CleanerViewModel(
         val items = when (currentSection) {
             CleanerSection.Duplicates -> listState.duplicates.map {
                 it.toCleanerItem(
-                    title = "Duplicate",
-                    subtitle = "Keep starred pick · safe to remove extras",
+                    title = app.getString(R.string.clean_item_duplicate),
+                    subtitle = app.getString(R.string.clean_item_duplicate_sub),
                     starred = it.isStarredPick
                 )
             }
             CleanerSection.Blurry -> listState.blurry.map {
                 it.toCleanerItem(
-                    title = "Blurry",
-                    subtitle = "Low sharpness · quality ${it.qualityScore.toInt()}"
+                    title = app.getString(R.string.clean_item_blurry),
+                    subtitle = app.getString(
+                        R.string.clean_item_blurry_sub,
+                        it.qualityScore.toInt()
+                    )
                 )
             }
             CleanerSection.ExpiredScreenshots -> listState.expired.map {
                 it.toCleanerItem(
-                    title = "Expired screenshot",
-                    subtitle = "Sensitive screenshot older than 7 days"
+                    title = app.getString(R.string.clean_item_expired),
+                    subtitle = app.getString(R.string.clean_item_expired_sub)
                 )
             }
             CleanerSection.LongScreenshots -> listState.longScreenshots.map {
                 it.toCleanerItem(
-                    title = "Long screenshot",
-                    subtitle = "Unusual aspect ratio"
+                    title = app.getString(R.string.clean_item_long),
+                    subtitle = app.getString(R.string.clean_item_long_sub)
                 )
             }
         }
@@ -170,8 +175,15 @@ class CleanerViewModel(
                 CleanerItem(
                     id = photo.id,
                     uri = photo.uri,
-                    title = if (photo.isStarredPick) "Best pick" else "Similar",
-                    subtitle = "Quality ${photo.qualityScore.toInt()}",
+                    title = if (photo.isStarredPick) {
+                        app.getString(R.string.action_keep)
+                    } else {
+                        app.getString(R.string.clean_similar)
+                    },
+                    subtitle = app.getString(
+                        R.string.clean_quality,
+                        photo.qualityScore.toInt()
+                    ),
                     starred = photo.isStarredPick
                 )
             }
@@ -185,13 +197,14 @@ class CleanerViewModel(
 
     private fun reasonFor(section: CleanerSection, item: CleanerItem): String = when (section) {
         CleanerSection.Duplicates ->
-            "Looks nearly identical to other shots. ${if (item.starred) "This is the best keep candidate." else "A sharper twin is marked Keep."}"
-        CleanerSection.Blurry ->
-            "Looks soft or motion-blurred compared with nearby photos."
-        CleanerSection.ExpiredScreenshots ->
-            "Sensitive screenshot older than 7 days."
-        CleanerSection.LongScreenshots ->
-            "Very tall screenshot — usually a scrolling capture."
+            if (item.starred) {
+                app.getString(R.string.clean_reason_dup_keep)
+            } else {
+                app.getString(R.string.clean_reason_dup_extra)
+            }
+        CleanerSection.Blurry -> app.getString(R.string.clean_reason_blurry)
+        CleanerSection.ExpiredScreenshots -> app.getString(R.string.clean_reason_expired)
+        CleanerSection.LongScreenshots -> app.getString(R.string.clean_reason_long)
     }
 
     private data class Counts(

@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.SkryApplication
 import com.yishenghuang.skry.data.MediaRepository
 import com.yishenghuang.skry.data.ScanPreferences
@@ -38,6 +39,7 @@ class DashboardViewModel(
     private val scanPreferences: ScanPreferences
 ) : AndroidViewModel(application) {
 
+    private val app get() = getApplication<Application>()
     private val permissionGranted = kotlinx.coroutines.flow.MutableStateFlow(false)
     private val statusMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
@@ -86,11 +88,16 @@ class DashboardViewModel(
         val computedMessage = when {
             message != null -> message
             scanning && stats.pending > 0 ->
-                "Scanning ${stats.audited} / ${stats.audited + stats.pending} · ${stats.pending} left"
+                app.getString(
+                    R.string.home_msg_scanning,
+                    stats.audited,
+                    stats.audited + stats.pending,
+                    stats.pending
+                )
             !scanning && stats.pending > 0 && scanPreferences.isScanActive ->
-                "Scan paused · ${stats.pending} left · tap ring to resume"
+                app.getString(R.string.home_msg_paused, stats.pending)
             !scanning && stats.library > 0 && stats.pending == 0 ->
-                "All ${stats.audited} audited · ${stats.risk} risks"
+                app.getString(R.string.home_msg_all_audited, stats.audited, stats.risk)
             else -> null
         }
         DashboardViewState(
@@ -115,37 +122,35 @@ class DashboardViewModel(
     fun onPermissionResult(granted: Boolean) {
         permissionGranted.value = granted
         if (granted) {
-            // Index only — never start privacy OCR automatically.
             viewModelScope.launch {
                 runCatching { repository.syncGallery() }
                     .onSuccess { result ->
                         statusMessage.value =
-                            "${result.totalKnown} indexed · tap the ring to audit"
+                            app.getString(R.string.home_msg_indexed, result.totalKnown)
                     }
             }
             FullScanWorker.resumeIfNeeded(getApplication())
         } else {
-            statusMessage.value = "Photo access is required to audit your gallery."
+            statusMessage.value = app.getString(R.string.home_msg_need_permission)
         }
     }
 
     fun scanGallery() {
         if (!permissionGranted.value) return
         viewModelScope.launch {
-            statusMessage.value = "Indexing gallery…"
+            statusMessage.value = app.getString(R.string.home_msg_indexing)
             runCatching { repository.syncGallery() }
                 .onSuccess { indexed ->
-                    // Backfill quality metrics for photos audited before Phase 3.
                     repository.requeueMissingQuality()
                     val pending = repository.pendingCount()
                     if (pending == 0) {
                         scanPreferences.completeScan()
                         statusMessage.value =
-                            "Up to date · ${indexed.totalKnown} already audited"
+                            app.getString(R.string.home_msg_up_to_date, indexed.totalKnown)
                         return@onSuccess
                     }
                     scanPreferences.beginUserScan()
-                    statusMessage.value = "Scanning · $pending left"
+                    statusMessage.value = app.getString(R.string.home_msg_scanning_pending, pending)
                     FullScanWorker.enqueue(
                         context = getApplication(),
                         userInitiated = true,
@@ -153,7 +158,7 @@ class DashboardViewModel(
                     )
                 }
                 .onFailure {
-                    statusMessage.value = "Scan failed. Try again."
+                    statusMessage.value = app.getString(R.string.home_msg_scan_failed)
                 }
         }
     }

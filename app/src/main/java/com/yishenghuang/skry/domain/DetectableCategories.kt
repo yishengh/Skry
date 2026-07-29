@@ -1,85 +1,62 @@
 package com.yishenghuang.skry.domain
 
+import androidx.annotation.StringRes
+import com.yishenghuang.skry.R
+
+/** Localized display labels for [FindingType]. Stored finding JSON may stay English. */
+object FindingLabels {
+    @StringRes
+    fun titleRes(type: FindingType): Int = when (type) {
+        FindingType.PASSPORT -> R.string.finding_passport
+        FindingType.IDENTITY_CARD -> R.string.finding_identity_card
+        FindingType.CREDIT_CARD -> R.string.finding_credit_card
+        FindingType.PHONE_NUMBER -> R.string.finding_phone
+        FindingType.EMAIL_ADDRESS -> R.string.finding_email
+        FindingType.PHYSICAL_ADDRESS -> R.string.finding_address
+        FindingType.SSN_LIKE -> R.string.finding_ssn
+        FindingType.IBAN -> R.string.finding_iban
+        FindingType.DATE_OF_BIRTH -> R.string.finding_dob
+        FindingType.IP_ADDRESS -> R.string.finding_ip
+        FindingType.SECRET_TOKEN -> R.string.finding_secret
+        FindingType.SENSITIVE_SCREENSHOT -> R.string.finding_sensitive_screenshot
+        FindingType.LOCATION_EXIF -> R.string.finding_location_exif
+        FindingType.POSSIBLE_ID_PHOTO -> R.string.finding_possible_id
+    }
+
+    @StringRes
+    fun descriptionRes(type: FindingType): Int = when (type) {
+        FindingType.PASSPORT -> R.string.finding_desc_passport
+        FindingType.IDENTITY_CARD -> R.string.finding_desc_identity_card
+        FindingType.CREDIT_CARD -> R.string.finding_desc_credit_card
+        FindingType.PHONE_NUMBER -> R.string.finding_desc_phone
+        FindingType.EMAIL_ADDRESS -> R.string.finding_desc_email
+        FindingType.PHYSICAL_ADDRESS -> R.string.finding_desc_address
+        FindingType.SSN_LIKE -> R.string.finding_desc_ssn
+        FindingType.IBAN -> R.string.finding_desc_iban
+        FindingType.DATE_OF_BIRTH -> R.string.finding_desc_dob
+        FindingType.IP_ADDRESS -> R.string.finding_desc_ip
+        FindingType.SECRET_TOKEN -> R.string.finding_desc_secret
+        FindingType.SENSITIVE_SCREENSHOT -> R.string.finding_desc_sensitive_screenshot
+        FindingType.LOCATION_EXIF -> R.string.finding_desc_location_exif
+        FindingType.POSSIBLE_ID_PHOTO -> R.string.finding_desc_possible_id
+    }
+}
+
 /**
  * Catalog of privacy categories Skry can detect today (OCR + rules + EXIF).
  */
 data class DetectableCategory(
     val type: FindingType,
-    val title: String,
-    val description: String
+    @StringRes val titleRes: Int,
+    @StringRes val descriptionRes: Int
 )
 
 object DetectableCategories {
-    val all: List<DetectableCategory> = listOf(
+    val all: List<DetectableCategory> = FindingType.entries.map { type ->
         DetectableCategory(
-            type = FindingType.PASSPORT,
-            title = "Passport",
-            description = "MRZ lines and passport keywords"
-        ),
-        DetectableCategory(
-            type = FindingType.IDENTITY_CARD,
-            title = "Identity Card",
-            description = "ID / driver license document keywords"
-        ),
-        DetectableCategory(
-            type = FindingType.CREDIT_CARD,
-            title = "Credit Card",
-            description = "13–19 digit PANs (Luhn or card-like)"
-        ),
-        DetectableCategory(
-            type = FindingType.PHONE_NUMBER,
-            title = "Phone Number",
-            description = "US / international phone-like numbers"
-        ),
-        DetectableCategory(
-            type = FindingType.EMAIL_ADDRESS,
-            title = "Email Address",
-            description = "Standard email patterns"
-        ),
-        DetectableCategory(
-            type = FindingType.PHYSICAL_ADDRESS,
-            title = "Physical Address",
-            description = "Street address, city/state/ZIP heuristics"
-        ),
-        DetectableCategory(
-            type = FindingType.SSN_LIKE,
-            title = "SSN-like",
-            description = "Patterns like 123-45-6789"
-        ),
-        DetectableCategory(
-            type = FindingType.IBAN,
-            title = "IBAN",
-            description = "International bank account numbers"
-        ),
-        DetectableCategory(
-            type = FindingType.DATE_OF_BIRTH,
-            title = "Date of Birth",
-            description = "DOB keywords near a date"
-        ),
-        DetectableCategory(
-            type = FindingType.IP_ADDRESS,
-            title = "IP Address",
-            description = "IPv4 addresses in screenshots / docs"
-        ),
-        DetectableCategory(
-            type = FindingType.SECRET_TOKEN,
-            title = "Secret / API Token",
-            description = "API keys, bearer tokens, sk_live / AKIA"
-        ),
-        DetectableCategory(
-            type = FindingType.SENSITIVE_SCREENSHOT,
-            title = "Sensitive Screenshot",
-            description = "OTP, password, account, verification codes"
-        ),
-        DetectableCategory(
-            type = FindingType.LOCATION_EXIF,
-            title = "Location EXIF",
-            description = "Precise GPS still embedded in the file"
-        ),
-        DetectableCategory(
-            type = FindingType.POSSIBLE_ID_PHOTO,
-            title = "Possible ID Photo",
-            description = "Low-confidence document heuristic"
+            type = type,
+            titleRes = FindingLabels.titleRes(type),
+            descriptionRes = FindingLabels.descriptionRes(type)
         )
-    )
+    }
 }

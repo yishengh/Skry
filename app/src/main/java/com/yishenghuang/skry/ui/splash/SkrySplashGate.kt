@@ -27,7 +27,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.ui.components.SkryAnimatedBackdrop
 import com.yishenghuang.skry.ui.theme.AppDimensions
 import com.yishenghuang.skry.ui.theme.SkryColors
@@ -78,7 +80,7 @@ fun SkrySplashGate(
                     )
                     Spacer(modifier = Modifier.height(AppDimensions.spaceXs))
                     Text(
-                        text = "On-device gallery privacy",
+                        text = stringResource(R.string.splash_tagline),
                         style = Typography.bodyMedium,
                         color = SkryColors.Accent
                     )

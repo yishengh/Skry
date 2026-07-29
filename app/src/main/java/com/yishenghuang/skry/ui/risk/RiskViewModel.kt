@@ -6,12 +6,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.yishenghuang.skry.SkryApplication
+import com.yishenghuang.skry.R
 import com.yishenghuang.skry.data.MediaRepository
 import com.yishenghuang.skry.data.PhotoEntity
 import com.yishenghuang.skry.data.UserReviewStatus
 import com.yishenghuang.skry.domain.DetectableCategories
 import com.yishenghuang.skry.domain.DetectableCategory
 import com.yishenghuang.skry.domain.Finding
+import com.yishenghuang.skry.domain.FindingLabels
 import com.yishenghuang.skry.domain.FindingType
 import com.yishenghuang.skry.domain.FindingsJson
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +52,8 @@ class RiskViewModel(
     private val repository: MediaRepository
 ) : AndroidViewModel(application) {
 
+    private val appContext get() = getApplication<Application>()
+
     private val filter = MutableStateFlow(RiskListFilter.NeedsReview)
     private val categoryFilter = MutableStateFlow<FindingType?>(null)
     private val selectedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -74,7 +78,7 @@ class RiskViewModel(
             RiskListFilter.Confirmed -> photoLists.second
             RiskListFilter.Cleared -> photoLists.third
         }
-        var items = source.map { it.toRiskItem() }
+        var items = source.map { it.toRiskItem(appContext) }
         if (category != null) {
             items = items.filter { item -> item.findings.any { it.type == category } }
         }
@@ -174,7 +178,7 @@ class RiskViewModel(
     }
 }
 
-private fun PhotoEntity.toRiskItem(): RiskItem {
+private fun PhotoEntity.toRiskItem(context: Application): RiskItem {
     val findings = FindingsJson.decode(findingsJson)
     val primary = findings.maxByOrNull { it.confidence }
     val hasSensitiveRegion = findings.any {
@@ -189,12 +193,16 @@ private fun PhotoEntity.toRiskItem(): RiskItem {
             it.type == FindingType.SECRET_TOKEN ||
             (it.boxLeft != null && it.boxTop != null)
     }
+    val typeLabel = primary?.let { context.getString(FindingLabels.titleRes(it.type)) }
+        ?: context.getString(R.string.finding_generic)
     return RiskItem(
         id = id,
         uri = uri,
-        typeLabel = primary?.label ?: "Risk",
+        typeLabel = typeLabel,
         subtitle = primary?.snippet
-            ?: findings.joinToString(" · ") { it.label }.ifBlank { "Sensitive content detected" },
+            ?: findings.joinToString(" · ") {
+                context.getString(FindingLabels.titleRes(it.type))
+            }.ifBlank { typeLabel },
         hasSensitiveRegion = hasSensitiveRegion,
         userReview = userReview,
         findings = findings
