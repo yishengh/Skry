@@ -25,7 +25,7 @@ Skry audits your photo library locally — OCR + rules for privacy leaks, smart 
 | **Gallery Health** | Score ring · tap to scan / resume · live risk & cleaner counts |
 | **Privacy Audit** | On-device ML Kit OCR + rules (passport, ID, cards, phone, email, EXIF GPS, secrets, …) |
 | **Risk Explorer** | Batch confirm / clear · category filter · Review / Confirmed / Cleared |
-| **Smart Cleaner** | Near-duplicates (pHash) · blurry · expired / long screenshots · system delete prompt |
+| **Smart Cleaner** | Near-duplicates (perceptual average hash) · blurry · expired / long screenshots · confirmed, batched deletion |
 | **Safety Vault** | Mosaic sensitive regions · `EncryptedFile` + Keystore · biometric unlock |
 
 ## Trust model
@@ -39,6 +39,10 @@ Skry audits your photo library locally — OCR + rules for privacy leaks, smart 
 Kotlin · Jetpack Compose · Material 3 · Room · WorkManager · ML Kit Text Recognition (bundled) · AndroidX Security Crypto · Biometric
 
 `minSdk 26` (Android 8+) · UI: English + 简体中文 (follows system language) · OCR: Latin / English first
+
+Android 14+ selected-photo access is supported, with a selection-management entry on Home. Counts and results cover only accessible photos. Denied or revoked access hides gallery results without deleting encrypted vault copies. GPS EXIF checking uses the optional photo-location metadata permission on Android 10+; it does not track device location. The UI explains when this check is unavailable.
+
+Detection is heuristic and can miss information. Unscanned or unreadable photos do not receive a completed health score. Review a vault copy before choosing **Delete gallery original**; unlocated visual findings cause whole-image mosaic. Vault sessions lock when the app backgrounds, and app previews/screenshots are protected. Local scan databases and encrypted vault files are excluded from backup/transfer.
 
 ## Roadmap
 
@@ -68,6 +72,15 @@ See [`docs/SKRY_MASTER_PLAN.md`](docs/SKRY_MASTER_PLAN.md) for detailed phase no
 ```
 
 Open in Android Studio (JBR / JDK 17+). Grant gallery access (`READ_MEDIA_IMAGES` on Android 13+; storage permissions on older Android), then tap the health ring to scan.
+
+Local validation:
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug
+.\tools\Start-SyntheticEmulator.ps1 -Api 35 -Port 5562
+```
+
+Use only a dedicated `SkryApi*` emulator for media tests, and pass `-e skrySyntheticOnly true` to the instrumentation runner. The test guard rejects real-device hardware; test cleanup deletes only URIs created by that test. Never run deletion tests against a personal gallery. See the [local validation report](docs/LOCAL_VALIDATION_REPORT.md) for results and unverified conditions, and [scope history](docs/LOCAL_COMPLETION_PLAN.md) for implementation notes. No release, upload or remote push is part of this validation.
 
 Release signing uses a local `keystore.properties` (see `keystore.properties.example`). Never commit keystores or passwords.
 

@@ -117,7 +117,7 @@ fun CleanerDetailScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Outlined.Star,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.photo_preview),
                         tint = SkryColors.Primary,
                         modifier = Modifier.size(16.dp)
                     )
@@ -174,7 +174,7 @@ private fun RelatedThumb(item: CleanerItem, onClick: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(AppDimensions.spaceXxxs)) {
             AsyncImage(
                 model = ImageRequest.Builder(context).data(item.uri).crossfade(true).build(),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.photo_preview),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -197,9 +197,10 @@ private fun RelatedThumb(item: CleanerItem, onClick: () -> Unit) {
 private fun ZoomBox(uri: String) {
     val context = LocalContext.current
     val shape = RoundedCornerShape(AppDimensions.radiusCard)
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+    var scale by remember(uri) { mutableFloatStateOf(1f) }
+    var offset by remember(uri) { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    var loadFailed by remember(uri) { mutableStateOf(false) }
 
     fun constrained(raw: Offset, currentScale: Float): Offset {
         if (currentScale <= 1f || containerSize == IntSize.Zero) return Offset.Zero
@@ -222,9 +223,12 @@ private fun ZoomBox(uri: String) {
             .background(SkryColors.Surface, shape),
         contentAlignment = Alignment.Center
     ) {
+        if (loadFailed) Text(stringResource(R.string.photo_unavailable), style = Typography.bodyMedium)
         AsyncImage(
             model = ImageRequest.Builder(context).data(uri).crossfade(true).build(),
-            contentDescription = null,
+            contentDescription = stringResource(R.string.photo_preview),
+            onError = { loadFailed = true },
+            onSuccess = { loadFailed = false },
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()

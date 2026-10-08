@@ -4,50 +4,89 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PhotoDao {
+    @Transaction
+    suspend fun replaceDuplicateFlags(flags: List<Triple<String, Boolean, Boolean>>) {
+        clearDuplicateFlags()
+        flags.forEach { (id, suggested, starred) -> updateDuplicateFlags(id, suggested, starred) }
+    }
+    @Query("UPDATE photos SET galleryAvailable = 0")
+    suspend fun hideGallery()
+
+    @Query("UPDATE photos SET galleryAvailable = 1 WHERE id IN (:ids)")
+    suspend fun markAvailable(ids: List<String>)
+
+    /** One atomic snapshot, with bounded SQLite parameter counts. Vault rows are retained. */
+    @Transaction
+    suspend fun reconcileGallery(photos: List<PhotoEntity>): Int {
+        var changed = 0
+        hideGallery()
+        photos.chunked(500).forEach { batch ->
+            insertAll(batch)
+            markAvailable(batch.map { it.id })
+            batch.forEach { photo ->
+                changed += refreshMetadata(photo.id, photo.size, photo.dateModified, photo.displayName,
+                    photo.width, photo.height, photo.isScreenshot)
+            }
+        }
+        return changed
+    }
+
+    @Query("""UPDATE photos SET size = :size, dateModified = :modified, displayName = :name,
+        width = :width, height = :height, isScreenshot = :screenshot, scanStatus = 'PENDING',
+        pHash = NULL, findingsJson = '[]', userReview = 'NONE', suggestedDelete = 0, isStarredPick = 0,
+        isBlurry = 0, isExpiredScreenshot = 0, isLongScreenshot = 0
+        WHERE id = :id AND (size != :size OR dateModified != :modified OR width != :width OR height != :height
+            OR displayName IS NOT :name OR isScreenshot != :screenshot)""")
+    suspend fun refreshMetadata(id: String, size: Long, modified: Long, name: String?, width: Int, height: Int, screenshot: Boolean): Int
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(photos: List<PhotoEntity>): List<Long>
 
-    @Query("SELECT * FROM photos ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM photos WHERE galleryAvailable = 1 ORDER BY dateAdded DESC")
     fun observeAll(): Flow<List<PhotoEntity>>
 
-    @Query("SELECT COUNT(*) FROM photos")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1")
     fun observeCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM photos WHERE findingsJson != '[]' AND userReview != 'DISMISSED'")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1 AND findingsJson != '[]' AND userReview != 'DISMISSED'")
     fun observeRiskCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM photos WHERE suggestedDelete = 1")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1 AND suggestedDelete = 1")
     fun observeDuplicateCandidateCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM photos WHERE isBlurry = 1")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1 AND isBlurry = 1")
     fun observeBlurryCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM photos WHERE isExpiredScreenshot = 1")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1 AND isExpiredScreenshot = 1")
     fun observeExpiredScreenshotCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM photos WHERE scanStatus = :status")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1 AND scanStatus = :status")
     suspend fun countByStatus(status: ScanStatus): Int
 
-    @Query("SELECT COUNT(*) FROM photos WHERE scanStatus = :status")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1 AND scanStatus = :status")
     fun observeCountByStatus(status: ScanStatus): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM photos WHERE scanStatus = 'DONE' OR scanStatus = 'ERROR'")
+    @Query("SELECT COUNT(*) FROM photos WHERE galleryAvailable = 1 AND scanStatus = 'DONE'")
     fun observeAuditedCount(): Flow<Int>
 
-    @Query("UPDATE photos SET scanStatus = :status")
+    @Query("UPDATE photos SET scanStatus = :status WHERE galleryAvailable = 1")
     suspend fun setAllScanStatus(status: ScanStatus)
 
     @Query("SELECT id FROM photos")
     suspend fun getAllIds(): List<String>
 
+    @Query("SELECT id FROM photos WHERE galleryAvailable = 1")
+    suspend fun getAvailableIds(): List<String>
+
     @Query(
         """
         SELECT * FROM photos
-        WHERE findingsJson != '[]' AND userReview != 'DISMISSED'
+        WHERE galleryAvailable = 1 AND findingsJson != '[]' AND userReview != 'DISMISSED'
         ORDER BY dateAdded DESC
         """
     )
@@ -56,7 +95,7 @@ interface PhotoDao {
     @Query(
         """
         SELECT * FROM photos
-        WHERE findingsJson != '[]' AND userReview = 'DISMISSED'
+        WHERE galleryAvailable = 1 AND findingsJson != '[]' AND userReview = 'DISMISSED'
         ORDER BY dateAdded DESC
         """
     )
@@ -65,7 +104,7 @@ interface PhotoDao {
     @Query(
         """
         SELECT * FROM photos
-        WHERE findingsJson != '[]' AND userReview = 'CONFIRMED_LEAK'
+        WHERE galleryAvailable = 1 AND findingsJson != '[]' AND userReview = 'CONFIRMED_LEAK'
         ORDER BY dateAdded DESC
         """
     )
@@ -74,25 +113,25 @@ interface PhotoDao {
     @Query(
         """
         SELECT * FROM photos
-        WHERE findingsJson != '[]'
+        WHERE galleryAvailable = 1 AND findingsJson != '[]'
         ORDER BY dateAdded DESC
         """
     )
     fun observeAllFindingPhotos(): Flow<List<PhotoEntity>>
 
-    @Query("SELECT * FROM photos WHERE isBlurry = 1 ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM photos WHERE galleryAvailable = 1 AND isBlurry = 1 ORDER BY dateAdded DESC")
     fun observeBlurryPhotos(): Flow<List<PhotoEntity>>
 
-    @Query("SELECT * FROM photos WHERE suggestedDelete = 1 ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM photos WHERE galleryAvailable = 1 AND suggestedDelete = 1 ORDER BY dateAdded DESC")
     fun observeSuggestedDeletes(): Flow<List<PhotoEntity>>
 
-    @Query("SELECT * FROM photos WHERE isExpiredScreenshot = 1 ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM photos WHERE galleryAvailable = 1 AND isExpiredScreenshot = 1 ORDER BY dateAdded DESC")
     fun observeExpiredScreenshots(): Flow<List<PhotoEntity>>
 
-    @Query("SELECT * FROM photos WHERE isLongScreenshot = 1 ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM photos WHERE galleryAvailable = 1 AND isLongScreenshot = 1 ORDER BY dateAdded DESC")
     fun observeLongScreenshots(): Flow<List<PhotoEntity>>
 
-    @Query("SELECT * FROM photos WHERE pHash IS NOT NULL")
+    @Query("SELECT * FROM photos WHERE galleryAvailable = 1 AND pHash IS NOT NULL")
     suspend fun getHashedPhotos(): List<PhotoEntity>
 
     @Query("SELECT * FROM photos WHERE id = :id LIMIT 1")
@@ -123,7 +162,7 @@ interface PhotoDao {
     @Query(
         """
         SELECT * FROM photos
-        WHERE scanStatus = :status
+        WHERE galleryAvailable = 1 AND scanStatus = :status
         ORDER BY dateAdded DESC
         LIMIT :limit
         """
@@ -172,7 +211,7 @@ interface PhotoDao {
     @Query("UPDATE photos SET suggestedDelete = 0, isStarredPick = 0")
     suspend fun clearDuplicateFlags()
 
-    @Query("UPDATE photos SET scanStatus = 'PENDING' WHERE (pHash IS NULL OR pHash = '') AND scanStatus = 'DONE'")
+    @Query("UPDATE photos SET scanStatus = 'PENDING' WHERE galleryAvailable = 1 AND ((pHash IS NULL AND scanStatus = 'DONE') OR scanStatus = 'ERROR')")
     suspend fun requeueDoneWithoutQuality()
 
     @Query(

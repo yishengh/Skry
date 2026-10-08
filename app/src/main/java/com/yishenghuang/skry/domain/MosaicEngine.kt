@@ -24,15 +24,15 @@ object MosaicEngine {
         } else {
             source.copy(Bitmap.Config.ARGB_8888, true) ?: return source
         }
-        val boxes = findings.mapNotNull { it.toPixelRect(mutable.width, mutable.height) }
-        if (boxes.isEmpty()) {
-            // No OCR boxes — soft-mosaic center band so vault export is never a raw leak.
-            val padX = (mutable.width * 0.12f).roundToInt()
-            val padY = (mutable.height * 0.18f).roundToInt()
+        val visualFindings = findings.filter { it.type != FindingType.LOCATION_EXIF }
+        val boxes = visualFindings.mapNotNull { it.toPixelRect(mutable.width, mutable.height) }
+        if (boxes.size != visualFindings.size) {
+            // A missing box may be anywhere, including the edges or outside other boxes.
+            // Coarsen the entire image rather than incorrectly claiming only a center band is sensitive.
             mosaicRegion(
                 bitmap = mutable,
-                region = Rect(padX, padY, mutable.width - padX, mutable.height - padY),
-                blockSize = blockSize
+                region = Rect(0, 0, mutable.width, mutable.height),
+                blockSize = max(blockSize, max(mutable.width, mutable.height) / 12)
             )
         } else {
             boxes.forEach { mosaicRegion(mutable, expand(it, mutable.width, mutable.height), blockSize) }
@@ -65,6 +65,7 @@ object MosaicEngine {
     }
 
     internal fun mosaicRegion(bitmap: Bitmap, region: Rect, blockSize: Int) {
+        require(blockSize > 0)
         if (region.width() <= 0 || region.height() <= 0) return
         val paint = Paint(Paint.FILTER_BITMAP_FLAG)
         val canvas = Canvas(bitmap)

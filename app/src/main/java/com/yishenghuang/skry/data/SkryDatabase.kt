@@ -31,7 +31,7 @@ class SkryConverters {
 
 @Database(
     entities = [PhotoEntity::class],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(SkryConverters::class)
@@ -39,6 +39,17 @@ abstract class SkryDatabase : RoomDatabase() {
     abstract fun photoDao(): PhotoDao
 
     companion object {
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE photos ADD COLUMN dateModified INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE photos ADD COLUMN galleryAvailable INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -75,7 +86,7 @@ abstract class SkryDatabase : RoomDatabase() {
                     SkryDatabase::class.java,
                     "skry.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                     .also { instance = it }
             }

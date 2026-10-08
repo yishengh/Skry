@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.Job
 
 enum class CleanerSection {
     Duplicates,
@@ -52,6 +55,11 @@ class CleanerViewModel(
     private val selectedIds = MutableStateFlow<Set<String>>(emptySet())
     private val detailId = MutableStateFlow<String?>(null)
     private val relatedItems = MutableStateFlow<List<CleanerItem>>(emptyList())
+    private var relatedJob: Job? = null
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val detailPhoto = detailId.flatMapLatest { id ->
+        if (id == null) flowOf(null) else repository.observePhoto(id)
+    }
 
     private val counts = combine(
         repository.observeDuplicateCandidateCount(),
@@ -114,7 +122,7 @@ class CleanerViewModel(
             longCount = countState.longCount,
             section = currentSection,
             items = items,
-            selectedIds = selected
+            selectedIds = selected.intersect(items.map { it.id }.toSet())
         )
     }.stateIn(
         scope = viewModelScope,
@@ -125,11 +133,13 @@ class CleanerViewModel(
     val detailState: StateFlow<CleanerDetailState> = combine(
         detailId,
         relatedItems,
-        uiState
-    ) { id, related, cleaner ->
-        if (id == null) return@combine CleanerDetailState(null)
+        uiState,
+        detailPhoto
+    ) { id, related, cleaner, photo ->
+        if (id == null || photo?.id != id || !photo.galleryAvailable) return@combine CleanerDetailState(null)
         val item = cleaner.items.firstOrNull { it.id == id }
-            ?: related.firstOrNull { it.id == id }
+            ?: photo.toCleanerItem(app.getString(R.string.clean_similar),
+                app.getString(R.string.clean_quality, photo.qualityScore.toInt()), photo.isStarredPick)
         CleanerDetailState(
             item = item,
             related = related.filter { it.id != id },
@@ -167,21 +177,13 @@ class CleanerViewModel(
             .map { Uri.parse(it.uri) }
     }
 
-    fun selectedPhotoIds(): List<String> = selectedIds.value.toList()
-
-    fun onDeleteCompleted(photoIds: List<String>) {
-        selectedIds.value = emptySet()
-        detailId.value = null
-        relatedItems.value = emptyList()
-        viewModelScope.launch {
-            repository.removeDeletedFromCleaner(photoIds)
-        }
-    }
-
     fun openDetail(id: String) {
+        relatedJob?.cancel()
+        relatedItems.value = emptyList()
         detailId.value = id
-        viewModelScope.launch {
+        relatedJob = viewModelScope.launch {
             val relatedPhotos = repository.findRelatedDuplicates(id)
+            if (detailId.value != id) return@launch
             relatedItems.value = relatedPhotos.map { photo ->
                 CleanerItem(
                     id = photo.id,
@@ -202,6 +204,7 @@ class CleanerViewModel(
     }
 
     fun closeDetail() {
+        relatedJob?.cancel()
         detailId.value = null
         relatedItems.value = emptyList()
     }

@@ -336,9 +336,10 @@ private fun ZoomablePhoto(
 ) {
     val context = LocalContext.current
     val shape = RoundedCornerShape(AppDimensions.radiusCard)
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+    var scale by remember(uri) { mutableFloatStateOf(1f) }
+    var offset by remember(uri) { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    var loadFailed by remember(uri) { mutableStateOf(false) }
 
     fun constrainedOffset(raw: Offset, currentScale: Float): Offset {
         if (currentScale <= 1f || containerSize == IntSize.Zero) return Offset.Zero
@@ -362,12 +363,15 @@ private fun ZoomablePhoto(
             .background(SkryColors.Surface, shape),
         contentAlignment = Alignment.Center
     ) {
+        if (loadFailed) Text(stringResource(R.string.photo_unavailable), style = Typography.bodyMedium)
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(uri)
                 .crossfade(true)
                 .build(),
             contentDescription = stringResource(R.string.risk_detail_title),
+            onError = { loadFailed = true },
+            onSuccess = { loadFailed = false },
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()

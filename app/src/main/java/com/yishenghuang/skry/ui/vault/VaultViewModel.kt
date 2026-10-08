@@ -19,13 +19,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 
 data class VaultItem(
     val id: String,
     val title: String,
     val subtitle: String,
     val fileName: String,
-    val vaultedAt: Long
+    val vaultedAt: Long,
+    val originalUri: String? = null
 )
 
 data class VaultUiState(
@@ -51,6 +56,7 @@ class VaultViewModel(
     private val loadingPreview = MutableStateFlow(false)
     private val busy = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
+    private var previewJob: Job? = null
 
     private val session = combine(
         unlocked,
@@ -107,11 +113,12 @@ class VaultViewModel(
     }
 
     fun openItem(id: String) {
+        if (!unlocked.value) return
+        previewJob?.cancel()
         selectedId.value = id
         loadingPreview.value = true
-        preview.value?.recycle()
         preview.value = null
-        viewModelScope.launch {
+        previewJob = viewModelScope.launch {
             val fileName = getApplication<SkryApplication>().database.photoDao().getById(id)?.vaultFileName
                 ?: uiState.value.items.firstOrNull { it.id == id }?.fileName
 
@@ -122,34 +129,40 @@ class VaultViewModel(
             }
             runCatching {
                 val bytes = repository.readVaultBytes(fileName)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                withContext(Dispatchers.Default) {
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        ?: error("Invalid vault image")
+                }
             }.onSuccess { bitmap ->
-                preview.value = bitmap
+                if (unlocked.value && selectedId.value == id) preview.value = bitmap
             }.onFailure {
-                message.value = it.message ?: app.getString(R.string.vault_err_decrypt)
+                if (it is CancellationException) throw it
+                message.value = app.getString(R.string.vault_err_decrypt)
             }
             loadingPreview.value = false
         }
     }
 
     fun closeDetail() {
+        previewJob?.cancel()
         selectedId.value = null
-        preview.value?.recycle()
         preview.value = null
         loadingPreview.value = false
     }
 
     fun deleteSelected() {
+        if (!unlocked.value || busy.value) return
         val id = selectedId.value ?: return
         busy.value = true
         viewModelScope.launch {
             runCatching { repository.deleteFromVault(id) }
-                .onSuccess {
-                    closeDetail()
-                    message.value = app.getString(R.string.vault_msg_removed)
+                .onSuccess { deleted ->
+                    if (deleted) closeDetail()
+                    message.value = app.getString(if (deleted) R.string.vault_msg_removed else R.string.vault_err_delete)
                 }
                 .onFailure {
-                    message.value = it.message ?: app.getString(R.string.vault_err_delete)
+                    if (it is CancellationException) throw it
+                    message.value = app.getString(R.string.vault_err_delete)
                 }
             busy.value = false
         }
@@ -186,6 +199,7 @@ private fun PhotoEntity.toVaultItem(app: Application): VaultItem {
         title = title,
         subtitle = app.getString(R.string.vault_item_row_sub),
         fileName = vaultFileName.orEmpty(),
-        vaultedAt = vaultedAt ?: 0L
+        vaultedAt = vaultedAt ?: 0L,
+        originalUri = uri.takeIf { galleryAvailable && dateModified <= (vaultedAt ?: 0L) / 1000L }
     )
 }

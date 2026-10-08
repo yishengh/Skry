@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
+    <exclude domain="database" path="." />
     <exclude domain="file" path="vault/" />
     <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_file_pref__" />
     <exclude domain="sharedpref" path="androidx_security_master_key_prefs" />

@@ -54,14 +54,17 @@ class VaultService(private val context: Context) {
                 if (it !== decoded) decoded.recycle()
             } ?: decoded
         }
-        val redacted = MosaicEngine.apply(working, findings)
-        val jpeg = compressJpeg(redacted, quality = 88)
-        if (!redacted.isRecycled) redacted.recycle()
+        val jpeg = try {
+            compressJpeg(MosaicEngine.apply(working, findings), quality = 88)
+        } finally { if (!working.isRecycled) working.recycle() }
 
         val fileName = "${photoId}_${System.currentTimeMillis()}.jpg.enc"
         val target = File(vaultDir, fileName)
-        encryptedFile(target).openFileOutput().use { out ->
-            out.write(jpeg)
+        try {
+            encryptedFile(target).openFileOutput().use { out -> out.write(jpeg) }
+        } catch (error: Exception) {
+            target.delete()
+            throw error
         }
         VaultStoreResult(fileName = fileName, redacted = true)
     }

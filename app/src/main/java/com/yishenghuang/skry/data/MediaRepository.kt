@@ -13,6 +13,9 @@ import com.yishenghuang.skry.util.MediaAccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class GalleryScanResult(
     val inserted: Int,
@@ -40,6 +43,10 @@ class MediaRepository(
     private val photoDao: PhotoDao = SkryDatabase.get(context).photoDao(),
     private val vaultService: VaultService = VaultService(context)
 ) {
+    private val gallerySyncMutex = Mutex()
+    private val scanMutex = Mutex()
+    private val duplicateMutex = Mutex()
+    private val vaultMutex = Mutex()
     fun observeCount(): Flow<Int> = photoDao.observeCount()
     fun observeRiskCount(): Flow<Int> = photoDao.observeRiskCount()
     fun observeDuplicateCandidateCount(): Flow<Int> = photoDao.observeDuplicateCandidateCount()
@@ -76,22 +83,24 @@ class MediaRepository(
         photoDao.getById(id)
     }
 
-    suspend fun moveToVault(photoId: String): VaultMoveOutcome = withContext(Dispatchers.IO) {
+    suspend fun moveToVault(photoId: String): VaultMoveOutcome = withContext(Dispatchers.IO) { vaultMutex.withLock {
         val photo = photoDao.getById(photoId)
-            ?: return@withContext VaultMoveOutcome(
+            ?: return@withLock VaultMoveOutcome(
                 photoId = photoId,
                 originalUri = Uri.EMPTY,
                 fileName = "",
                 success = false,
-                message = "Photo not found"
+                message = context.getString(com.yishenghuang.skry.R.string.photo_unavailable)
             )
         if (!photo.vaultFileName.isNullOrBlank()) {
-            return@withContext VaultMoveOutcome(
+            val changedSinceVaulting = photo.dateModified > (photo.vaultedAt ?: 0L) / 1000L
+            return@withLock VaultMoveOutcome(
                 photoId = photoId,
                 originalUri = Uri.parse(photo.uri),
                 fileName = photo.vaultFileName,
-                success = true,
-                message = "Already in vault"
+                success = !changedSinceVaulting,
+                message = context.getString(if (changedSinceVaulting)
+                    com.yishenghuang.skry.R.string.vault_source_changed else com.yishenghuang.skry.R.string.vault_msg_saved)
             )
         }
         runCatching {
@@ -115,15 +124,16 @@ class MediaRepository(
                 success = true
             )
         }.getOrElse { error ->
+            if (error is CancellationException) throw error
             VaultMoveOutcome(
                 photoId = photoId,
                 originalUri = Uri.parse(photo.uri),
                 fileName = "",
                 success = false,
-                message = error.message ?: "Vault write failed"
+                message = context.getString(com.yishenghuang.skry.R.string.vault_msg_failed)
             )
         }
-    }
+    } }
 
     suspend fun readVaultBytes(fileName: String): ByteArray =
         vaultService.openDecryptedBytes(fileName)
@@ -132,7 +142,7 @@ class MediaRepository(
         val photo = photoDao.getById(photoId) ?: return@withContext false
         val fileName = photo.vaultFileName
         if (!fileName.isNullOrBlank()) {
-            vaultService.deleteVaultFile(fileName)
+            if (!vaultService.deleteVaultFile(fileName)) return@withContext false
         }
         photoDao.updateVault(
             id = photoId,
@@ -149,18 +159,28 @@ class MediaRepository(
         photoDao.clearCleanerFlagsForVaulted(photoIds)
     }
 
-    suspend fun syncGallery(): GalleryScanResult = withContext(Dispatchers.IO) {
+    suspend fun syncGallery(): GalleryScanResult = withContext(Dispatchers.IO) { gallerySyncMutex.withLock {
+        if (!MediaAccess.hasGalleryAccess(context)) {
+            photoDao.hideGallery()
+            return@withLock GalleryScanResult(0, 0)
+        }
         val existingIds = photoDao.getAllIds().toHashSet()
+        val availableIds = photoDao.getAvailableIds().toHashSet()
         val discovered = queryMediaStore()
         val fresh = discovered.filterNot { existingIds.contains(it.id) }
-        if (fresh.isNotEmpty()) {
-            photoDao.insertAll(fresh)
+        val changed = photoDao.reconcileGallery(discovered)
+        val prefs = context.getSharedPreferences("skry_index", Context.MODE_PRIVATE)
+        val locationAccess = MediaAccess.canReadLocationMetadata(context)
+        if (locationAccess && !prefs.getBoolean("location_access", false)) {
+            photoDao.setAllScanStatus(ScanStatus.PENDING)
         }
+        prefs.edit().putBoolean("location_access", locationAccess).apply()
+        if (changed > 0 || availableIds != discovered.map { it.id }.toSet()) regroupDuplicates()
         GalleryScanResult(
             inserted = fresh.size,
-            totalKnown = existingIds.size + fresh.size
+            totalKnown = discovered.size
         )
-    }
+    } }
 
     /**
      * Privacy OCR + quality metrics for PENDING photos only.
@@ -170,8 +190,9 @@ class MediaRepository(
         batchSize: Int = 20,
         forceRescan: Boolean = false,
         shouldAbort: () -> Boolean = { false },
+        regroup: Boolean = true,
         onProgress: (PrivacyScanProgress) -> Unit = {}
-    ): PrivacyScanProgress = withContext(Dispatchers.IO) {
+    ): PrivacyScanProgress = withContext(Dispatchers.IO) { scanMutex.withLock {
         if (forceRescan) {
             photoDao.setAllScanStatus(ScanStatus.PENDING)
         }
@@ -201,7 +222,7 @@ class MediaRepository(
                             intrinsicHeight = photo.height,
                             dateAddedSeconds = photo.dateAdded
                         )
-                    }
+                    }.onFailure { if (it is CancellationException) throw it }
                     if (result.isSuccess) {
                         val outcome = result.getOrThrow()
                         ocrCharsSeen += outcome.ocrTextLength
@@ -244,8 +265,6 @@ class MediaRepository(
                     processed += 1
                 }
 
-                regroupDuplicates()
-
                 val remaining = photoDao.countByStatus(ScanStatus.PENDING)
                 onProgress(
                     PrivacyScanProgress(
@@ -262,50 +281,29 @@ class MediaRepository(
             scanner.close()
         }
 
-        regroupDuplicates()
+        if (regroup) regroupDuplicates()
         val remaining = photoDao.countByStatus(ScanStatus.PENDING)
         PrivacyScanProgress(
             processed = processed,
             risksFound = risksFound,
             remaining = remaining,
-            finished = true,
+            finished = remaining == 0,
             ocrCharsSeen = ocrCharsSeen
         ).also(onProgress)
-    }
+    } }
 
     /**
      * Cluster near-duplicate pHashes; keep highest qualityScore as starred pick,
      * mark the rest suggestedDelete.
      */
-    suspend fun regroupDuplicates(hammingThreshold: Int = 8) = withContext(Dispatchers.IO) {
-        photoDao.clearDuplicateFlags()
+    suspend fun regroupDuplicates(hammingThreshold: Int = 8) = withContext(Dispatchers.IO) { duplicateMutex.withLock {
         val hashed = photoDao.getHashedPhotos().filter { !it.pHash.isNullOrBlank() }
-        if (hashed.size < 2) return@withContext
-
-        val assigned = hashSetOf<String>()
-        hashed.forEach { seed ->
-            if (seed.id in assigned) return@forEach
-            val seedHash = seed.pHash ?: return@forEach
-            val group = mutableListOf(seed)
-            hashed.forEach { other ->
-                if (other.id == seed.id || other.id in assigned) return@forEach
-                val otherHash = other.pHash ?: return@forEach
-                if (QualityAnalyzer.hammingDistance(seedHash, otherHash) <= hammingThreshold) {
-                    group += other
-                }
-            }
-            if (group.size < 2) return@forEach
-            group.forEach { assigned += it.id }
-            val best = group.maxBy { it.qualityScore }
-            group.forEach { photo ->
-                photoDao.updateDuplicateFlags(
-                    id = photo.id,
-                    suggested = photo.id != best.id,
-                    starred = photo.id == best.id
-                )
-            }
-        }
-    }
+        val flags = com.yishenghuang.skry.domain.DuplicateGrouping.group(
+            hashed.map { com.yishenghuang.skry.domain.DuplicateGrouping.Photo(it.id, it.pHash!!, it.qualityScore) },
+            hammingThreshold
+        ).map { Triple(it.id, it.suggested, it.starred) }
+        photoDao.replaceDuplicateFlags(flags)
+    } }
 
     suspend fun findRelatedDuplicates(
         photoId: String,
@@ -330,6 +328,7 @@ class MediaRepository(
             add(MediaStore.Images.Media._ID)
             add(MediaStore.Images.Media.DISPLAY_NAME)
             add(MediaStore.Images.Media.DATE_ADDED)
+            add(MediaStore.Images.Media.DATE_MODIFIED)
             add(MediaStore.Images.Media.SIZE)
             add(MediaStore.Images.Media.WIDTH)
             add(MediaStore.Images.Media.HEIGHT)
@@ -344,16 +343,18 @@ class MediaRepository(
         val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
         val items = mutableListOf<PhotoEntity>()
 
-        context.contentResolver.query(
+        val cursorResult = context.contentResolver.query(
             collection,
             projection,
             null,
             null,
             sortOrder
-        )?.use { cursor ->
+        ) ?: throw IllegalStateException("MediaStore query unavailable")
+        cursorResult.use { cursor ->
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+            val modifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
             val widthCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
             val heightCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
@@ -378,6 +379,7 @@ class MediaRepository(
                     uri = uri.toString(),
                     displayName = displayName,
                     dateAdded = cursor.getLong(dateCol),
+                    dateModified = cursor.getLong(modifiedCol),
                     size = cursor.getLong(sizeCol),
                     width = cursor.getInt(widthCol),
                     height = cursor.getInt(heightCol),

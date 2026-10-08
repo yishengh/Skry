@@ -3,7 +3,7 @@ package com.yishenghuang.skry.domain
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import androidx.exifinterface.media.ExifInterface
+import kotlinx.coroutines.ensureActive
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -44,13 +44,8 @@ class PrivacyScanner(
             )
         }
 
-        val rotation = readRotationDegrees(uri)
         val bitmap = decodeSampledBitmap(uri, maxSide = 1600)
-            ?: return@withContext PrivacyScanOutcome(
-                findings = findings,
-                latitude = gps.latitude,
-                longitude = gps.longitude
-            )
+            ?: error("Unable to decode gallery image")
 
         var ocrLen = 0
         var quality: QualityResult? = null
@@ -61,8 +56,12 @@ class PrivacyScanner(
             } else {
                 bitmap.copy(Bitmap.Config.ARGB_8888, false)?.also { ownedCopy = it } ?: bitmap
             }
-            val image = InputImage.fromBitmap(argb, rotation)
-            val visionText = recognizer.process(image).await()
+            // MediaAccess normalizes orientation on every Android version.
+            val image = InputImage.fromBitmap(argb, 0)
+            val visionText = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                recognizer.process(image).await()
+            }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             val text = visionText.text.orEmpty()
             ocrLen = text.length
             val blocks = PrivacyRules.blocksFromMlKit(visionText, argb.width, argb.height)
@@ -99,20 +98,6 @@ class PrivacyScanner(
 
     fun close() {
         recognizer.close()
-    }
-
-    private fun readRotationDegrees(uri: Uri): Int {
-        return runCatching {
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                val exif = ExifInterface(stream)
-                when (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
-                    ExifInterface.ORIENTATION_ROTATE_90 -> 90
-                    ExifInterface.ORIENTATION_ROTATE_180 -> 180
-                    ExifInterface.ORIENTATION_ROTATE_270 -> 270
-                    else -> 0
-                }
-            } ?: 0
-        }.getOrDefault(0)
     }
 
     private fun decodeSampledBitmap(uri: Uri, maxSide: Int): Bitmap? {

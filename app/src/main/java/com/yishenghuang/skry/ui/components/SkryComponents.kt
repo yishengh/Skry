@@ -141,6 +141,7 @@ fun HealthProgressRing(
     modifier: Modifier = Modifier,
     label: String,
     actionLabel: String? = null,
+    valueText: String? = null,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null
 ) {
@@ -158,7 +159,7 @@ fun HealthProgressRing(
 
     Box(
         modifier = modifier
-            .size(AppDimensions.progressSize)
+            .size(AppDimensions.progressSize * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceIn(1f, 2f))
             .scale(scale)
             .then(
                 if (onClick != null) {
@@ -201,7 +202,7 @@ fun HealthProgressRing(
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "${(clamped * 100).toInt()}",
+                text = valueText ?: "${(clamped * 100).toInt()}",
                 style = SkryTypography.displayLarge,
                 color = SkryColors.OnBackground
             )

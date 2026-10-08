@@ -47,6 +47,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -360,30 +362,16 @@ private fun RiskRowCard(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(AppDimensions.spaceLg)
-                    .clip(RoundedCornerShape(AppDimensions.radiusTag))
-                    .background(
-                        if (selected) SkryColors.Primary.copy(alpha = 0.3f) else SkryColors.SurfaceLifted
-                    )
-                    .border(
-                        AppDimensions.hairline,
-                        if (selected) SkryColors.Primary else SkryColors.Hairline,
-                        RoundedCornerShape(AppDimensions.radiusTag)
-                    )
-                    .clickable(onClick = onToggle),
-                contentAlignment = Alignment.Center
-            ) {
-                if (selected) {
-                    Icon(
-                        imageVector = Icons.Outlined.Check,
-                        contentDescription = stringResource(R.string.risk_selected),
-                        tint = SkryColors.Primary,
-                        modifier = Modifier.size(AppDimensions.spaceSm)
-                    )
-                }
-            }
+            val selectionLabel = stringResource(R.string.select_photo)
+            androidx.compose.material3.Checkbox(
+                checked = selected,
+                onCheckedChange = { onToggle() },
+                modifier = Modifier.semantics { contentDescription = selectionLabel },
+                colors = androidx.compose.material3.CheckboxDefaults.colors(
+                    checkedColor = SkryColors.Primary,
+                    uncheckedColor = SkryColors.Accent
+                )
+            )
             Spacer(modifier = Modifier.width(AppDimensions.spaceSm))
             RiskThumbnail(uri = item.uri, hasSensitiveRegion = item.hasSensitiveRegion)
             Spacer(modifier = Modifier.width(AppDimensions.spaceSm))
@@ -422,10 +410,8 @@ private fun RiskThumbnail(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(28.dp)
-                    .blur(12.dp)
-                    .background(SkryColors.OnBackground.copy(alpha = 0.35f))
+                    .fillMaxSize()
+                    .background(SkryColors.SurfaceLifted)
             )
             Icon(
                 imageVector = Icons.Outlined.Shield,

@@ -1,6 +1,7 @@
 package com.yishenghuang.skry.data
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "photos")
@@ -32,5 +33,7 @@ data class PhotoEntity(
     val isStarredPick: Boolean = false,
     val userReview: UserReviewStatus = UserReviewStatus.NONE,
     val isLongScreenshot: Boolean = false,
-    val isExpiredScreenshot: Boolean = false
+    val isExpiredScreenshot: Boolean = false,
+    @ColumnInfo(defaultValue = "1") val galleryAvailable: Boolean = true,
+    @ColumnInfo(defaultValue = "0") val dateModified: Long = 0
 )

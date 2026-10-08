@@ -37,6 +37,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,17 +70,36 @@ fun VaultScreen(
     onOpen: (String) -> Unit = {},
     onCloseDetail: () -> Unit = {},
     onDelete: () -> Unit = {},
+    onDeleteOriginal: () -> Unit = {},
     onClearMessage: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val hostError = stringResource(R.string.vault_err_host)
     val activity = context as? FragmentActivity
+    var confirmDelete by rememberSaveable(state.selectedId) { mutableStateOf(false) }
+    if (confirmDelete && state.unlocked && state.selectedId != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.vault_delete)) },
+            text = { Text(stringResource(R.string.vault_delete_confirm)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) }
+            }
+        )
+    }
 
     if (state.selectedId != null && state.unlocked) {
         VaultDetailPane(
             state = state,
             onBack = onCloseDetail,
-            onDelete = onDelete,
+            onDelete = { confirmDelete = true },
+            onDeleteOriginal = onDeleteOriginal,
             modifier = modifier
         )
         return
@@ -133,7 +156,7 @@ fun VaultScreen(
             Button(
                 onClick = {
                     if (activity == null) {
-                        onUnlockFailed(context.getString(R.string.vault_err_host))
+                        onUnlockFailed(hostError)
                         return@Button
                     }
                     launchBiometric(
@@ -157,7 +180,7 @@ fun VaultScreen(
             OutlinedButton(
                 onClick = {
                     if (activity == null) {
-                        onUnlockFailed(context.getString(R.string.vault_err_host))
+                        onUnlockFailed(hostError)
                         return@OutlinedButton
                     }
                     launchBiometric(
@@ -230,6 +253,7 @@ private fun VaultDetailPane(
     state: VaultUiState,
     onBack: () -> Unit,
     onDelete: () -> Unit,
+    onDeleteOriginal: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -304,6 +328,11 @@ private fun VaultDetailPane(
                 Spacer(Modifier.width(AppDimensions.spaceXs))
                 Text(stringResource(R.string.vault_delete))
             }
+            if (state.items.any { it.id == state.selectedId && it.originalUri != null }) {
+                OutlinedButton(onClick = onDeleteOriginal, enabled = !state.busy) {
+                    Text(stringResource(R.string.vault_delete_original))
+                }
+            }
         }
     }
 }
@@ -326,7 +355,8 @@ private fun launchBiometric(
 ) {
     val manager = BiometricManager.from(activity)
     val authenticators = if (allowDeviceCredential) {
-        BiometricManager.Authenticators.BIOMETRIC_STRONG or
+        (if (android.os.Build.VERSION.SDK_INT < 30) BiometricManager.Authenticators.BIOMETRIC_WEAK
+        else BiometricManager.Authenticators.BIOMETRIC_STRONG) or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL
     } else {
         BiometricManager.Authenticators.BIOMETRIC_STRONG

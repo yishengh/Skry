@@ -35,6 +35,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -56,6 +58,7 @@ import com.yishenghuang.skry.ui.theme.Typography
 @Composable
 fun CleanerScreen(
     state: CleanerUiState,
+    deleteBusy: Boolean = false,
     onSectionSelected: (CleanerSection) -> Unit = {},
     onOpen: (CleanerItem) -> Unit = {},
     onToggle: (String) -> Unit = {},
@@ -147,6 +150,7 @@ fun CleanerScreen(
             if (state.selectedIds.isNotEmpty()) {
                 Button(
                     onClick = onDeleteSelected,
+                    enabled = !deleteBusy,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = AppDimensions.spaceSm),
@@ -217,30 +221,16 @@ private fun CleanerRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(AppDimensions.spaceLg)
-                    .clip(RoundedCornerShape(AppDimensions.radiusTag))
-                    .background(
-                        if (selected) SkryColors.Primary.copy(alpha = 0.3f) else SkryColors.SurfaceLifted
-                    )
-                    .border(
-                        AppDimensions.hairline,
-                        if (selected) SkryColors.Primary else SkryColors.Hairline,
-                        RoundedCornerShape(AppDimensions.radiusTag)
-                    )
-                    .clickable(onClick = onToggle),
-                contentAlignment = Alignment.Center
-            ) {
-                if (selected) {
-                    Icon(
-                        imageVector = Icons.Outlined.Check,
-                        contentDescription = stringResource(R.string.clean_selected),
-                        tint = SkryColors.Primary,
-                        modifier = Modifier.size(AppDimensions.spaceSm)
-                    )
-                }
-            }
+            val selectionLabel = stringResource(R.string.select_photo)
+            androidx.compose.material3.Checkbox(
+                checked = selected,
+                onCheckedChange = { onToggle() },
+                modifier = Modifier.semantics { contentDescription = selectionLabel },
+                colors = androidx.compose.material3.CheckboxDefaults.colors(
+                    checkedColor = SkryColors.Primary,
+                    uncheckedColor = SkryColors.Accent
+                )
+            )
             Spacer(modifier = Modifier.width(AppDimensions.spaceSm))
             Box(
                 modifier = Modifier

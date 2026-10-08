@@ -11,6 +11,8 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.yishenghuang.skry.SkryApplication
 import com.yishenghuang.skry.data.ScanPreferences
+import com.yishenghuang.skry.util.MediaAccess
+import kotlinx.coroutines.CancellationException
 
 /**
  * Durable privacy scan over PENDING photos only.
@@ -26,13 +28,14 @@ class FullScanWorker(
             ?: return Result.failure()
         val prefs = ScanPreferences(applicationContext)
         val repository = app.mediaRepository
+        if (!MediaAccess.hasGalleryAccess(applicationContext)) return Result.failure()
 
         return runCatching {
+            repository.syncGallery()
             var runProcessed = 0
 
             while (runProcessed < MAX_PHOTOS_PER_RUN) {
                 if (isStopped) {
-                    prefs.isScanActive = true
                     return@runCatching Result.success(
                         workDataOf(
                             KEY_PROCESSED to runProcessed,
@@ -47,7 +50,8 @@ class FullScanWorker(
                     maxPhotos = BATCH_SIZE,
                     batchSize = BATCH_SIZE,
                     forceRescan = false,
-                    shouldAbort = { isStopped }
+                    shouldAbort = { isStopped || !MediaAccess.hasGalleryAccess(applicationContext) },
+                    regroup = false
                 )
                 runProcessed += batchResult.processed
                 prefs.addRisks(batchResult.risksFound)
@@ -65,14 +69,12 @@ class FullScanWorker(
                 if (batchResult.processed == 0 || pending == 0) break
             }
 
+            repository.regroupDuplicates()
             val remaining = repository.pendingCount()
-            if (remaining > 0 && !isStopped) {
+            if (remaining > 0 && !isStopped && prefs.isScanActive && MediaAccess.hasGalleryAccess(applicationContext)) {
                 enqueue(applicationContext, userInitiated = true, replace = false)
-                prefs.isScanActive = true
             } else if (remaining == 0) {
                 prefs.completeScan()
-            } else {
-                prefs.isScanActive = true
             }
 
             Result.success(
@@ -84,8 +86,9 @@ class FullScanWorker(
                 )
             )
         }.getOrElse {
-            prefs.isScanActive = true
-            Result.retry()
+            if (it is CancellationException) throw it
+            if (!MediaAccess.hasGalleryAccess(applicationContext) || runAttemptCount >= 3) Result.failure()
+            else Result.retry()
         }
     }
 
@@ -114,15 +117,15 @@ class FullScanWorker(
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 UNIQUE_NAME,
-                if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE,
+                if (replace) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.APPEND_OR_REPLACE,
                 request
             )
         }
 
         fun resumeIfNeeded(context: Context) {
             val prefs = ScanPreferences(context)
-            if (!prefs.isScanActive) return
-            enqueue(context, userInitiated = true, replace = false)
+            if (!prefs.isScanActive || !MediaAccess.hasGalleryAccess(context)) return
+            enqueue(context, userInitiated = true, replace = true)
         }
     }
 }

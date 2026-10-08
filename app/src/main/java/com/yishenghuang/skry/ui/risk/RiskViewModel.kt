@@ -10,6 +10,7 @@ import com.yishenghuang.skry.R
 import com.yishenghuang.skry.data.MediaRepository
 import com.yishenghuang.skry.data.PhotoEntity
 import com.yishenghuang.skry.data.UserReviewStatus
+import com.yishenghuang.skry.data.VaultMoveOutcome
 import com.yishenghuang.skry.domain.DetectableCategories
 import com.yishenghuang.skry.domain.DetectableCategory
 import com.yishenghuang.skry.domain.Finding
@@ -57,6 +58,8 @@ class RiskViewModel(
     private val filter = MutableStateFlow(RiskListFilter.NeedsReview)
     private val categoryFilter = MutableStateFlow<FindingType?>(null)
     private val selectedIds = MutableStateFlow<Set<String>>(emptySet())
+    val vaultBusy = MutableStateFlow(false)
+    val vaultResult = MutableStateFlow<VaultMoveOutcome?>(null)
 
     private val lists = combine(
         repository.observeRiskPhotos(),
@@ -132,7 +135,7 @@ class RiskViewModel(
     }
 
     fun batchConfirmSelected() {
-        val ids = selectedIds.value.toList()
+        val ids = uiState.value.selectedIds.toList()
         viewModelScope.launch {
             ids.forEach { repository.setUserReview(it, UserReviewStatus.CONFIRMED_LEAK) }
             selectedIds.value = emptySet()
@@ -140,7 +143,7 @@ class RiskViewModel(
     }
 
     fun batchClearSelected() {
-        val ids = selectedIds.value.toList()
+        val ids = uiState.value.selectedIds.toList()
         viewModelScope.launch {
             ids.forEach { repository.setUserReview(it, UserReviewStatus.DISMISSED) }
             selectedIds.value = emptySet()
@@ -148,21 +151,21 @@ class RiskViewModel(
     }
 
     fun batchRestoreSelected() {
-        val ids = selectedIds.value.toList()
+        val ids = uiState.value.selectedIds.toList()
         viewModelScope.launch {
             ids.forEach { repository.setUserReview(it, UserReviewStatus.NONE) }
             selectedIds.value = emptySet()
         }
     }
 
-    fun moveToVault(id: String, onResult: (Boolean, String?, android.net.Uri?) -> Unit) {
+    fun clearVaultResult() { vaultResult.value = null }
+
+    fun moveToVault(id: String) {
+        if (vaultBusy.value) return
+        vaultBusy.value = true
         viewModelScope.launch {
-            val outcome = repository.moveToVault(id)
-            onResult(
-                outcome.success,
-                outcome.message,
-                outcome.originalUri.takeIf { outcome.success && it != android.net.Uri.EMPTY }
-            )
+            try { vaultResult.value = repository.moveToVault(id) }
+            finally { vaultBusy.value = false }
         }
     }
 

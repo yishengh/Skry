@@ -42,6 +42,8 @@ import com.yishenghuang.skry.ui.theme.Typography
 @Composable
 fun DashboardScreen(
     state: DashboardViewState,
+    onOpenSettings: () -> Unit = {},
+    onPauseScan: () -> Unit = {},
     onPrivacyClick: () -> Unit = {},
     onDuplicatesClick: () -> Unit = {},
     onBlurryClick: () -> Unit = {},
@@ -76,9 +78,11 @@ fun DashboardScreen(
                     .padding(vertical = AppDimensions.spaceSm),
                 contentAlignment = Alignment.Center
             ) {
+                val complete = state.hasPermission && state.libraryCount > 0 && state.auditedCount == state.libraryCount
                 HealthProgressRing(
                     progress = state.healthScore,
-                    label = stringResource(R.string.home_health_label),
+                    valueText = if (complete) null else "—",
+                    label = stringResource(if (complete) R.string.home_health_label else R.string.home_not_audited),
                     actionLabel = ringAction,
                     enabled = state.hasPermission && !state.isScanning,
                     onClick = if (state.hasPermission) onScanNow else null
@@ -132,8 +136,24 @@ fun DashboardScreen(
                 }
             }
 
+            if (state.isScanning) {
+                androidx.compose.material3.TextButton(onClick = onPauseScan) {
+                    Text(stringResource(R.string.home_pause_scan))
+                }
+            }
+
             state.lastScanMessage?.let { message ->
                 Text(text = message, style = Typography.bodyMedium)
+            }
+
+            if (state.locationMetadataUnavailable) {
+                Text(stringResource(R.string.home_location_unavailable), style = Typography.bodyMedium)
+            }
+            if (state.partialAccess) {
+                Text(stringResource(R.string.home_partial_access), style = Typography.bodyMedium)
+                Button(onClick = onRequestPermission) {
+                    Text(stringResource(R.string.home_choose_photos))
+                }
             }
 
             if (!state.hasPermission) {
@@ -156,6 +176,9 @@ fun DashboardScreen(
                             )
                         ) {
                             Text(stringResource(R.string.home_grant_access))
+                        }
+                        androidx.compose.material3.TextButton(onClick = onOpenSettings) {
+                            Text(stringResource(R.string.home_open_settings))
                         }
                     }
                 }

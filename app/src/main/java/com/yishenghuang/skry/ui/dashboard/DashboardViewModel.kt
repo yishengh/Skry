@@ -12,6 +12,7 @@ import com.yishenghuang.skry.SkryApplication
 import com.yishenghuang.skry.data.MediaRepository
 import com.yishenghuang.skry.data.ScanPreferences
 import com.yishenghuang.skry.worker.FullScanWorker
+import com.yishenghuang.skry.util.MediaAccess
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -30,7 +31,9 @@ data class DashboardViewState(
     val scanProgress: Float = 0f,
     val isScanning: Boolean = false,
     val lastScanMessage: String? = null,
-    val hasPermission: Boolean = false
+    val hasPermission: Boolean = false,
+    val partialAccess: Boolean = false,
+    val locationMetadataUnavailable: Boolean = false
 )
 
 class DashboardViewModel(
@@ -40,8 +43,10 @@ class DashboardViewModel(
 ) : AndroidViewModel(application) {
 
     private val app get() = getApplication<Application>()
-    private val permissionGranted = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private val permissionGranted = kotlinx.coroutines.flow.MutableStateFlow(0)
     private val statusMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    private val indexing = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private var scanJob: kotlinx.coroutines.Job? = null
 
     private val workRunning = WorkManager.getInstance(application)
         .getWorkInfosForUniqueWorkFlow(FullScanWorker.UNIQUE_NAME)
@@ -75,18 +80,21 @@ class DashboardViewModel(
         libraryStats,
         permissionGranted,
         workRunning,
-        statusMessage
-    ) { stats, permitted, running, message ->
-        val scanning = running || (scanPreferences.isScanActive && stats.pending > 0)
+        statusMessage,
+        indexing
+    ) { stats, permission, running, message, indexingNow ->
+        val permitted = permission != 0
+        val scanning = permitted && (running || indexingNow)
+        val errors = (stats.library - stats.audited - stats.pending).coerceAtLeast(0)
         val progress = if (stats.library == 0) {
             0f
         } else {
-            stats.audited.toFloat() / (stats.audited + stats.pending).coerceAtLeast(1)
+            (stats.audited + errors).toFloat() / stats.library.coerceAtLeast(1)
         }
         val penalty = (stats.risk * 4 + stats.duplicates + stats.blurry).coerceAtMost(80)
         val health = ((100 - penalty) / 100f).coerceIn(0.05f, 1f)
         val computedMessage = when {
-            message != null -> message
+            !permitted -> app.getString(R.string.home_msg_need_permission)
             scanning && stats.pending > 0 ->
                 app.getString(
                     R.string.home_msg_scanning,
@@ -96,6 +104,8 @@ class DashboardViewModel(
                 )
             !scanning && stats.pending > 0 && scanPreferences.isScanActive ->
                 app.getString(R.string.home_msg_paused, stats.pending)
+            errors > 0 -> app.getString(R.string.home_msg_errors, errors)
+            message != null -> message
             !scanning && stats.library > 0 && stats.pending == 0 ->
                 app.getString(R.string.home_msg_all_audited, stats.audited, stats.risk)
             else -> null
@@ -111,7 +121,9 @@ class DashboardViewModel(
             scanProgress = progress,
             isScanning = scanning,
             lastScanMessage = computedMessage,
-            hasPermission = permitted
+            hasPermission = permitted,
+            partialAccess = permitted && !MediaAccess.hasFullGalleryAccess(app),
+            locationMetadataUnavailable = permitted && !MediaAccess.canReadLocationMetadata(app)
         )
     }.stateIn(
         scope = viewModelScope,
@@ -120,24 +132,26 @@ class DashboardViewModel(
     )
 
     fun onPermissionResult(granted: Boolean) {
-        permissionGranted.value = granted
+        permissionGranted.value = if (!granted) 0 else if (MediaAccess.hasFullGalleryAccess(app)) 2 else 1
         if (granted) {
             viewModelScope.launch {
                 runCatching { repository.syncGallery() }
-                    .onSuccess { result ->
-                        statusMessage.value =
-                            app.getString(R.string.home_msg_indexed, result.totalKnown)
-                    }
+                    .onSuccess { statusMessage.value = null }
+                    .onFailure { statusMessage.value = app.getString(R.string.home_msg_scan_failed) }
             }
             FullScanWorker.resumeIfNeeded(getApplication())
         } else {
+            WorkManager.getInstance(app).cancelUniqueWork(FullScanWorker.UNIQUE_NAME)
+            viewModelScope.launch { repository.syncGallery() }
             statusMessage.value = app.getString(R.string.home_msg_need_permission)
         }
     }
 
     fun scanGallery() {
-        if (!permissionGranted.value) return
-        viewModelScope.launch {
+        if (permissionGranted.value == 0 || indexing.value || uiState.value.isScanning) return
+        indexing.value = true
+        scanJob = viewModelScope.launch {
+            try {
             statusMessage.value = app.getString(R.string.home_msg_indexing)
             runCatching { repository.syncGallery() }
                 .onSuccess { indexed ->
@@ -150,7 +164,7 @@ class DashboardViewModel(
                         return@onSuccess
                     }
                     scanPreferences.beginUserScan()
-                    statusMessage.value = app.getString(R.string.home_msg_scanning_pending, pending)
+                    statusMessage.value = null
                     FullScanWorker.enqueue(
                         context = getApplication(),
                         userInitiated = true,
@@ -158,9 +172,18 @@ class DashboardViewModel(
                     )
                 }
                 .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) throw it
                     statusMessage.value = app.getString(R.string.home_msg_scan_failed)
                 }
+            } finally { indexing.value = false }
         }
+    }
+
+    fun pauseScan() {
+        scanJob?.cancel()
+        scanPreferences.completeScan()
+        WorkManager.getInstance(app).cancelUniqueWork(FullScanWorker.UNIQUE_NAME)
+        statusMessage.value = app.getString(R.string.home_msg_paused, uiState.value.pendingCount)
     }
 
     private data class LibraryStats(

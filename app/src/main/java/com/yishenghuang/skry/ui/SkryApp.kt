@@ -37,6 +37,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yishenghuang.skry.R
 import com.yishenghuang.skry.ui.cleaner.CleanerDetailScreen
@@ -67,9 +69,16 @@ private enum class SkryDestination(
 fun SkryApp() {
     var destination by rememberSaveable { mutableStateOf(SkryDestination.Dashboard) }
     var selectedRiskId by rememberSaveable { mutableStateOf<String?>(null) }
-    var vaultBusy by remember { mutableStateOf(false) }
-    var pendingCleanerDeleteIds by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    val deleteViewModel: GalleryDeleteViewModel = viewModel()
+    val deleteConfirmation by deleteViewModel.confirmation.collectAsStateWithLifecycle()
+    val deleteBusy by deleteViewModel.busy.collectAsStateWithLifecycle()
+    val deleteSender by deleteViewModel.sender.collectAsStateWithLifecycle()
+    val deleteMessage by deleteViewModel.message.collectAsStateWithLifecycle()
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
     val context = LocalContext.current
+    val vaultSavedMessage = stringResource(R.string.vault_msg_saved)
+    val vaultFailedMessage = stringResource(R.string.vault_msg_failed)
     val application = context.applicationContext as Application
     val dashboardViewModel: DashboardViewModel = viewModel(
         factory = DashboardViewModel.factory(application)
@@ -88,6 +97,20 @@ fun SkryApp() {
     val cleanerState by cleanerViewModel.uiState.collectAsStateWithLifecycle()
     val cleanerDetail by cleanerViewModel.detailState.collectAsStateWithLifecycle()
     val vaultState by vaultViewModel.uiState.collectAsStateWithLifecycle()
+    val vaultBusy by riskViewModel.vaultBusy.collectAsStateWithLifecycle()
+    val vaultResult by riskViewModel.vaultResult.collectAsStateWithLifecycle()
+    LaunchedEffect(vaultResult) {
+        vaultResult?.let { result ->
+            riskViewModel.clearVaultResult()
+            if (result.success) {
+                vaultViewModel.showMessage(result.message ?: vaultSavedMessage)
+                selectedRiskId = null
+                destination = SkryDestination.Vault
+            } else {
+                snackbar.showSnackbar(result.message ?: vaultFailedMessage)
+            }
+        }
+    }
     val selectedRisk = riskState.items.firstOrNull { it.id == selectedRiskId }
     val showingCleanerDetail = destination == SkryDestination.Clean && cleanerDetail.item != null
     val showingVaultDetail =
@@ -95,49 +118,50 @@ fun SkryApp() {
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        val granted = results.isNotEmpty() && results.values.all { it }
-        dashboardViewModel.onPermissionResult(granted)
+    ) {
+        dashboardViewModel.onPermissionResult(MediaAccess.hasGalleryAccess(context))
     }
 
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            cleanerViewModel.onDeleteCompleted(pendingCleanerDeleteIds)
-        }
-        pendingCleanerDeleteIds = emptyList()
-    }
+    ) { result -> deleteViewModel.onSystemResult(result.resultCode == Activity.RESULT_OK) }
 
-    val vaultOriginalDeleteLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartIntentSenderForResult()
-    ) {
-        // Original gallery delete is optional after vaulting
-    }
-
-    fun requestDelete(
-        uris: List<Uri>,
-        photoIds: List<String> = emptyList(),
-        forVaultOriginal: Boolean = false
-    ) {
-        when (val outcome = MediaAccess.deleteMedia(context, uris)) {
-            is MediaAccess.DeleteOutcome.NeedsUserConfirmation -> {
-                val launcher =
-                    if (forVaultOriginal) vaultOriginalDeleteLauncher else deleteLauncher
-                if (!forVaultOriginal) pendingCleanerDeleteIds = photoIds
-                launcher.launch(
-                    IntentSenderRequest.Builder(outcome.intentSender).build()
-                )
-            }
-            MediaAccess.DeleteOutcome.Deleted -> {
-                if (!forVaultOriginal) cleanerViewModel.onDeleteCompleted(photoIds)
-            }
-            MediaAccess.DeleteOutcome.Failed -> Unit
+    LaunchedEffect(deleteSender?.sequence) {
+        deleteSender?.let { request ->
+            try {
+                deleteLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                deleteViewModel.senderLaunched()
+            } catch (_: Exception) { deleteViewModel.launchFailed() }
         }
     }
-
-    LaunchedEffect(Unit) {
+    LaunchedEffect(deleteMessage) {
+        deleteMessage?.let {
+            snackbar.showSnackbar(it)
+            deleteViewModel.clearMessage()
+        }
+    }
+    if (deleteConfirmation.isNotEmpty()) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = deleteViewModel::cancelConfirmation,
+            title = { Text(stringResource(R.string.delete_confirm_title)) },
+            text = { Text(stringResource(R.string.delete_confirm_body, deleteConfirmation.size)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = deleteViewModel::confirm) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = deleteViewModel::cancelConfirmation) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         dashboardViewModel.onPermissionResult(MediaAccess.hasGalleryAccess(context))
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        vaultViewModel.lock()
     }
 
     LaunchedEffect(selectedRiskId, riskState.items) {
@@ -160,6 +184,14 @@ fun SkryApp() {
     }
 
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
+        topBar = {
+            if (deleteBusy) {
+                androidx.compose.material3.TextButton(onClick = deleteViewModel::cancelPending) {
+                    Text(stringResource(R.string.delete_stop_pending))
+                }
+            }
+        },
         modifier = Modifier.fillMaxSize(),
         containerColor = SkryColors.Background,
         bottomBar = {
@@ -206,9 +238,22 @@ fun SkryApp() {
         when (destination) {
             SkryDestination.Dashboard -> DashboardScreen(
                 state = dashboardState,
+                onPauseScan = dashboardViewModel::pauseScan,
+                onOpenSettings = {
+                    context.startActivity(android.content.Intent(
+                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:${context.packageName}")
+                    ))
+                },
                 onPrivacyClick = { destination = SkryDestination.Risk },
-                onDuplicatesClick = { destination = SkryDestination.Clean },
-                onBlurryClick = { destination = SkryDestination.Clean },
+                onDuplicatesClick = {
+                    cleanerViewModel.selectSection(com.yishenghuang.skry.ui.cleaner.CleanerSection.Duplicates)
+                    destination = SkryDestination.Clean
+                },
+                onBlurryClick = {
+                    cleanerViewModel.selectSection(com.yishenghuang.skry.ui.cleaner.CleanerSection.Blurry)
+                    destination = SkryDestination.Clean
+                },
                 onRequestPermission = {
                     permissionLauncher.launch(MediaAccess.requiredReadPermissions())
                 },
@@ -233,27 +278,7 @@ fun SkryApp() {
                             selectedRiskId = null
                         },
                         vaultBusy = vaultBusy,
-                        onMoveToVault = {
-                            val id = selectedRiskId ?: return@RiskDetailScreen
-                            vaultBusy = true
-                            riskViewModel.moveToVault(id) { ok, message, originalUri ->
-                                vaultBusy = false
-                                if (ok) {
-                                    vaultViewModel.showMessage(
-                                        message ?: context.getString(R.string.vault_msg_saved)
-                                    )
-                                    selectedRiskId = null
-                                    destination = SkryDestination.Vault
-                                    if (originalUri != null && originalUri != Uri.EMPTY) {
-                                        requestDelete(listOf(originalUri), forVaultOriginal = true)
-                                    }
-                                } else {
-                                    vaultViewModel.showMessage(
-                                        message ?: context.getString(R.string.vault_msg_failed)
-                                    )
-                                }
-                            }
-                        },
+                        onMoveToVault = { selectedRiskId?.let(riskViewModel::moveToVault) },
                         modifier = contentModifier
                     )
                 } else {
@@ -283,6 +308,7 @@ fun SkryApp() {
                 } else {
                     CleanerScreen(
                         state = cleanerState,
+                        deleteBusy = deleteBusy,
                         onSectionSelected = cleanerViewModel::selectSection,
                         onOpen = { cleanerViewModel.openDetail(it.id) },
                         onToggle = cleanerViewModel::toggleSelection,
@@ -291,10 +317,7 @@ fun SkryApp() {
                         onDeleteSelected = {
                             val uris = cleanerViewModel.selectedUris()
                             if (uris.isEmpty()) return@CleanerScreen
-                            requestDelete(
-                                uris = uris,
-                                photoIds = cleanerViewModel.selectedPhotoIds()
-                            )
+                            deleteViewModel.request(uris)
                         },
                         modifier = contentModifier
                     )
@@ -308,6 +331,11 @@ fun SkryApp() {
                 onOpen = vaultViewModel::openItem,
                 onCloseDetail = vaultViewModel::closeDetail,
                 onDelete = vaultViewModel::deleteSelected,
+                onDeleteOriginal = {
+                    vaultState.items.firstOrNull { it.id == vaultState.selectedId }?.originalUri?.let {
+                        deleteViewModel.request(listOf(Uri.parse(it)))
+                    }
+                },
                 onClearMessage = vaultViewModel::clearMessage,
                 modifier = contentModifier
             )

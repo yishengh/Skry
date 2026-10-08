@@ -1,5 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="delete_stop_pending">Stop pending deletion</string>
+    <string name="vault_source_changed">The gallery original changed after this vault copy was saved. Review the existing copy in Vault; remove it first if you want to save a new copy.</string>
+    <string name="home_not_audited">NOT AUDITED</string>
+    <string name="vault_delete_original">Delete gallery original…</string>
+    <string name="select_photo">Select photo</string>
+    <string name="photo_preview">Photo preview</string>
+    <string name="home_pause_scan">Pause scan</string>
+    <string name="home_open_settings">Open app settings</string>
+    <string name="home_location_unavailable">Photo location metadata is unavailable. GPS checks may be incomplete; other scans still work.</string>
+    <string name="vault_delete_confirm">Permanently delete this encrypted copy? If you deleted the gallery original, this may be your only copy.</string>
+    <string name="home_msg_errors">%1$d photos could not be scanned. Tap the scan ring to retry. Unreadable photos are not counted as safe.</string>
+    <string name="action_delete">Delete</string>
+    <string name="delete_confirm_title">Delete original photos?</string>
+    <string name="delete_confirm_body">Delete %1$d selected original photos from your gallery? This cannot be undone here. Any encrypted vault copies will be kept.</string>
+    <string name="delete_done">Deletion finished. Gallery and counts refreshed.</string>
+    <string name="delete_cancelled">Deletion stopped. Photos already deleted in earlier batches remain deleted.</string>
+    <string name="delete_failed">Some photos could not be deleted. Check gallery permissions and try again. The list shows the current gallery.</string>
+    <string name="delete_refresh_failed">Could not refresh the gallery. Return to Home and try again before deleting more photos.</string>
+    <string name="delete_interrupted">Deletion was interrupted. Review your selection before trying again.</string>
+    <string name="home_partial_access">Only selected photos are accessible. Counts and scan results cover this selection.</string>
+    <string name="home_choose_photos">Manage photo access</string>
     <string name="app_name">Skry</string>
     <string name="app_tagline">On-device gallery privacy</string>
 
@@ -162,7 +183,7 @@
     <string name="vault_item_title">Vault item</string>
     <string name="vault_item_subtitle">Visible for this unlock session</string>
     <string name="vault_preview_unavailable">Preview unavailable</string>
-    <string name="vault_detail_body">Sensitive areas were mosaicked before encryption. Your original gallery file stays until you delete it.</string>
+    <string name="vault_detail_body">Detected areas were mosaicked before encryption. If a finding could not be located, the whole image was mosaicked. Detection may miss information: inspect this copy before deleting the original. The original stays until you explicitly delete it.</string>
     <string name="vault_delete">Delete from vault</string>
     <string name="vault_item_row_sub">Redacted · encrypted here</string>
     <string name="vault_prompt_title">Unlock Safety Vault</string>

@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import androidx.exifinterface.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -20,19 +22,33 @@ import kotlin.math.roundToInt
 object MediaAccess {
 
     fun requiredReadPermissions(): Array<String> = when {
-        Build.VERSION.SDK_INT >= 33 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
-        Build.VERSION.SDK_INT >= 29 -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        Build.VERSION.SDK_INT >= 34 -> arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            Manifest.permission.ACCESS_MEDIA_LOCATION
+        )
+        Build.VERSION.SDK_INT >= 33 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.ACCESS_MEDIA_LOCATION)
+        Build.VERSION.SDK_INT >= 29 -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.ACCESS_MEDIA_LOCATION)
         else -> arrayOf(
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE
         )
     }
 
-    fun hasGalleryAccess(context: Context): Boolean =
-        requiredReadPermissions().all { permission ->
-            ContextCompat.checkSelfPermission(context, permission) ==
-                PackageManager.PERMISSION_GRANTED
-        }
+    private fun granted(context: Context, permission: String): Boolean =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+    fun hasFullGalleryAccess(context: Context): Boolean = granted(
+        context,
+        if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES
+        else Manifest.permission.READ_EXTERNAL_STORAGE
+    )
+
+    fun canReadLocationMetadata(context: Context): Boolean = Build.VERSION.SDK_INT < 29 ||
+        granted(context, Manifest.permission.ACCESS_MEDIA_LOCATION)
+
+    fun hasGalleryAccess(context: Context): Boolean = hasFullGalleryAccess(context) ||
+        (Build.VERSION.SDK_INT >= 34 && granted(context, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))
 
     fun imagesCollectionUri(): Uri =
         if (Build.VERSION.SDK_INT >= 29) {
@@ -107,9 +123,20 @@ object MediaAccess {
             inPreferredConfig = Bitmap.Config.ARGB_8888
             inMutable = mutable
         }
-        val bitmap = context.contentResolver.openInputStream(uri)?.use {
+        val decoded = context.contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, opts)
         } ?: return@runCatching null
+
+        val exif = context.contentResolver.openInputStream(uri)?.use { ExifInterface(it) }
+        val transform = Matrix().apply {
+            if (exif?.isFlipped == true) postScale(-1f, 1f)
+            postRotate((exif?.rotationDegrees ?: 0).toFloat())
+        }
+        val bitmap = if (transform.isIdentity) decoded else {
+            Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, transform, true).also {
+                if (it !== decoded) decoded.recycle()
+            }
+        }
 
         val bw = bitmap.width
         val bh = bitmap.height
@@ -135,7 +162,7 @@ object MediaAccess {
     }
 
     fun deleteMedia(context: Context, uris: List<Uri>): DeleteOutcome {
-        if (uris.isEmpty()) return DeleteOutcome.Failed
+        if (uris.isEmpty() || (Build.VERSION.SDK_INT < 30 && uris.size != 1)) return DeleteOutcome.Failed
         return when {
             Build.VERSION.SDK_INT >= 30 -> {
                 runCatching {
@@ -159,6 +186,8 @@ object MediaAccess {
                     needsConfirmation = e.userAction.actionIntent.intentSender
                     break
                 }
+            } catch (_: Exception) {
+                return DeleteOutcome.Failed
             }
         }
         return when {
